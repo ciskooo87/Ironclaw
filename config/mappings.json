@@ -1,0 +1,12 @@
+{
+  "aliases": {
+    "periodo": ["periodo", "período", "mes", "mês", "data", "competencia", "competência"],
+    "unidade": ["unidade", "area", "área", "bu", "departamento"],
+    "kpi": ["kpi", "indicador", "metric", "metrica", "métrica"],
+    "valor_atual": ["valor_atual", "valor", "atual", "realizado", "resultado"],
+    "meta": ["meta", "target", "objetivo"],
+    "variacao": ["variacao", "variação", "delta"],
+    "observacao": ["observacao", "observação", "nota", "comentario", "comentário"]
+  },
+  "required_fields": ["periodo", "unidade", "kpi", "valor_atual", "meta"]
+}

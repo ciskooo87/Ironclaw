@@ -16,7 +16,7 @@ OUTPUTS = ROOT / "outputs"
 CONFIG = ROOT / "config"
 LOGS = ROOT / "logs"
 
-REQUIRED_FIELDS = ["periodo", "unidade", "kpi", "valor_atual", "meta"]
+DEFAULT_REQUIRED_FIELDS = ["periodo", "unidade", "kpi", "valor_atual", "meta"]
 
 
 def setup_logging() -> Path:
@@ -50,57 +50,153 @@ def to_float(val: Any) -> float:
 
 def norm_key(key: str) -> str:
     k = key.strip().lower()
-    return re.sub(r"\s+", "_", k)
+    k = re.sub(r"\s+", "_", k)
+    return (
+        k.replace("á", "a")
+        .replace("à", "a")
+        .replace("â", "a")
+        .replace("ã", "a")
+        .replace("é", "e")
+        .replace("ê", "e")
+        .replace("í", "i")
+        .replace("ó", "o")
+        .replace("ô", "o")
+        .replace("õ", "o")
+        .replace("ú", "u")
+        .replace("ç", "c")
+    )
 
 
-def normalize_row(row: Dict[str, Any], source_file: str, idx: int) -> Dict[str, Any]:
+def load_mappings() -> Tuple[Dict[str, List[str]], List[str]]:
+    path = CONFIG / "mappings.json"
+    aliases: Dict[str, List[str]] = {
+        "periodo": ["periodo", "mes", "data"],
+        "unidade": ["unidade", "area", "bu"],
+        "kpi": ["kpi", "indicador", "metric"],
+        "valor_atual": ["valor_atual", "valor", "atual"],
+        "meta": ["meta", "target"],
+        "variacao": ["variacao", "delta"],
+        "observacao": ["observacao", "nota", "comentario"],
+    }
+    required_fields = DEFAULT_REQUIRED_FIELDS.copy()
+
+    if path.exists():
+        try:
+            content = json.loads(path.read_text(encoding="utf-8"))
+            file_aliases = content.get("aliases", {})
+            aliases = {
+                canonical: [norm_key(canonical)] + [norm_key(a) for a in arr]
+                for canonical, arr in file_aliases.items()
+            }
+            required_fields = [norm_key(x) for x in content.get("required_fields", DEFAULT_REQUIRED_FIELDS)]
+        except Exception as e:
+            logging.warning("Falha ao carregar mappings.json (%s). Usando padrões.", e)
+    return aliases, required_fields
+
+
+def map_value(normalized: Dict[str, Any], aliases: Dict[str, List[str]], field: str, default: Any = "") -> Any:
+    candidates = aliases.get(field, [field])
+    for c in candidates:
+        if c in normalized and str(normalized[c]).strip() != "":
+            return normalized[c]
+    return default
+
+
+def normalize_row(row: Dict[str, Any], source_file: str, idx: int, aliases: Dict[str, List[str]]) -> Dict[str, Any]:
     normalized = {norm_key(k): v for k, v in row.items()}
     return {
-        "periodo": normalized.get("periodo") or normalized.get("mes") or normalized.get("data") or "",
-        "unidade": normalized.get("unidade") or normalized.get("area") or normalized.get("bu") or "",
-        "kpi": normalized.get("kpi") or normalized.get("indicador") or normalized.get("metric") or "",
-        "valor_atual": normalized.get("valor_atual") or normalized.get("valor") or normalized.get("atual") or "0",
-        "meta": normalized.get("meta") or normalized.get("target") or "0",
-        "variacao": normalized.get("variacao") or normalized.get("variação") or "",
-        "observacao": normalized.get("observacao") or normalized.get("observação") or "",
+        "periodo": map_value(normalized, aliases, "periodo", ""),
+        "unidade": map_value(normalized, aliases, "unidade", ""),
+        "kpi": map_value(normalized, aliases, "kpi", ""),
+        "valor_atual": map_value(normalized, aliases, "valor_atual", "0"),
+        "meta": map_value(normalized, aliases, "meta", "0"),
+        "variacao": map_value(normalized, aliases, "variacao", ""),
+        "observacao": map_value(normalized, aliases, "observacao", ""),
         "fonte_arquivo": source_file,
         "linha": idx,
     }
 
 
-def load_csv(file_path: Path) -> List[Dict[str, Any]]:
-    rows = []
+def normalize_headers(headers: List[str]) -> List[str]:
+    return [norm_key(str(h or "")) for h in headers]
+
+
+def validate_required_headers(headers: List[str], aliases: Dict[str, List[str]], required_fields: List[str]) -> List[str]:
+    missing = []
+    header_set = set(headers)
+    for field in required_fields:
+        if not set(aliases.get(field, [field])).intersection(header_set):
+            missing.append(field)
+    return missing
+
+
+def load_csv(file_path: Path, aliases: Dict[str, List[str]], required_fields: List[str]) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]]]:
+    rows, issues = [], []
     with file_path.open("r", encoding="utf-8-sig", newline="") as f:
         reader = csv.DictReader(f)
+        headers = normalize_headers(reader.fieldnames or [])
+        missing_headers = validate_required_headers(headers, aliases, required_fields)
+        if missing_headers:
+            issues.append(
+                {
+                    "type": "missing_required_headers",
+                    "missing_headers": missing_headers,
+                    "fonte_arquivo": file_path.name,
+                    "message": f"Arquivo sem colunas obrigatórias: {', '.join(missing_headers)}",
+                }
+            )
+            return rows, issues
+
         for idx, row in enumerate(reader, start=2):
-            rows.append(normalize_row(row, file_path.name, idx))
-    return rows
+            rows.append(normalize_row(row, file_path.name, idx, aliases))
+    return rows, issues
 
 
-def load_xlsx(file_path: Path) -> List[Dict[str, Any]]:
+def load_xlsx(file_path: Path, aliases: Dict[str, List[str]], required_fields: List[str]) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]]]:
+    issues: List[Dict[str, Any]] = []
     try:
         from openpyxl import load_workbook
     except Exception:
-        logging.warning("openpyxl não encontrado. Ignorando XLSX: %s", file_path.name)
-        return []
+        issues.append(
+            {
+                "type": "missing_dependency",
+                "dependency": "openpyxl",
+                "fonte_arquivo": file_path.name,
+                "message": "openpyxl não encontrado para leitura de XLSX",
+            }
+        )
+        return [], issues
 
     wb = load_workbook(file_path, read_only=True, data_only=True)
     ws = wb.active
     data = list(ws.iter_rows(values_only=True))
     if not data:
-        return []
-    headers = [norm_key(str(h or "")) for h in data[0]]
+        return [], issues
+
+    headers = normalize_headers([str(h or "") for h in data[0]])
+    missing_headers = validate_required_headers(headers, aliases, required_fields)
+    if missing_headers:
+        issues.append(
+            {
+                "type": "missing_required_headers",
+                "missing_headers": missing_headers,
+                "fonte_arquivo": file_path.name,
+                "message": f"Arquivo sem colunas obrigatórias: {', '.join(missing_headers)}",
+            }
+        )
+        return [], issues
+
     rows: List[Dict[str, Any]] = []
     for i, values in enumerate(data[1:], start=2):
         row_raw = {headers[c]: values[c] for c in range(min(len(headers), len(values)))}
-        rows.append(normalize_row(row_raw, file_path.name, i))
-    return rows
+        rows.append(normalize_row(row_raw, file_path.name, i, aliases))
+    return rows, issues
 
 
-def validate_rows(rows: List[Dict[str, Any]]) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]]]:
+def validate_rows(rows: List[Dict[str, Any]], required_fields: List[str]) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]]]:
     valid, issues = [], []
     for row in rows:
-        missing = [f for f in REQUIRED_FIELDS if str(row.get(f, "")).strip() == ""]
+        missing = [f for f in required_fields if str(row.get(f, "")).strip() == ""]
         if missing:
             issues.append(
                 {
@@ -108,6 +204,7 @@ def validate_rows(rows: List[Dict[str, Any]]) -> Tuple[List[Dict[str, Any]], Lis
                     "missing": missing,
                     "fonte_arquivo": row.get("fonte_arquivo"),
                     "linha": row.get("linha"),
+                    "message": f"Linha sem campos obrigatórios: {', '.join(missing)}",
                 }
             )
             continue
@@ -231,6 +328,7 @@ def render_markdown(summary: Dict[str, Any], top_risks: List[Dict[str, Any]]) ->
         f"- Registros processados: **{summary['processed']}**",
         f"- Riscos únicos identificados: **{summary['risks']}**",
         f"- Críticos/Altos: **{summary['critical_high']}**",
+        f"- Issues de dados: **{summary['issues']}**",
         "",
         "## Top riscos priorizados",
     ]
@@ -269,6 +367,8 @@ def run(max_risks: int = 10) -> int:
     log_path = setup_logging()
     logging.info("Iniciando pipeline MVP IRONCORE")
 
+    aliases, required_fields = load_mappings()
+
     source_files = [Path(p) for p in glob.glob(str(SOURCES / "*"))]
     csv_files = [p for p in source_files if p.suffix.lower() == ".csv"]
     xlsx_files = [p for p in source_files if p.suffix.lower() in {".xlsx", ".xlsm", ".xls"}]
@@ -278,14 +378,23 @@ def run(max_risks: int = 10) -> int:
         return 2
 
     rows: List[Dict[str, Any]] = []
+    issues: List[Dict[str, Any]] = []
+
     for f in csv_files:
         logging.info("Lendo CSV: %s", f.name)
-        rows.extend(load_csv(f))
+        loaded_rows, load_issues = load_csv(f, aliases, required_fields)
+        rows.extend(loaded_rows)
+        issues.extend(load_issues)
+
     for f in xlsx_files:
         logging.info("Lendo XLSX: %s", f.name)
-        rows.extend(load_xlsx(f))
+        loaded_rows, load_issues = load_xlsx(f, aliases, required_fields)
+        rows.extend(loaded_rows)
+        issues.extend(load_issues)
 
-    valid_rows, issues = validate_rows(rows)
+    valid_rows, validation_issues = validate_rows(rows, required_fields)
+    issues.extend(validation_issues)
+
     facts = build_facts(valid_rows)
     risks = build_risks(facts, load_rules())
 
@@ -297,15 +406,21 @@ def run(max_risks: int = 10) -> int:
         "processed": len(facts),
         "risks": len(risks),
         "critical_high": len([r for r in risks if r["level"] in {"Crítico", "Alto"}]),
+        "issues": len(issues),
         "generated_at": dt.datetime.now().isoformat(),
         "log_file": log_path.name,
     }
 
-    report = {"summary": summary, "top_risks": risks[:max_risks]}
+    report = {"summary": summary, "top_risks": risks[:max_risks], "issues": issues}
     (OUTPUTS / "comite.json").write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
     (OUTPUTS / "comite.md").write_text(render_markdown(summary, risks[:max_risks]), encoding="utf-8")
 
-    logging.info("Pipeline concluído. Processados=%s Riscos únicos=%s", summary["processed"], summary["risks"])
+    logging.info(
+        "Pipeline concluído. Processados=%s Riscos únicos=%s Issues=%s",
+        summary["processed"],
+        summary["risks"],
+        summary["issues"],
+    )
     return 0
 
 

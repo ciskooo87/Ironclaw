@@ -19,6 +19,7 @@ python3 ironcore_mvp.py --max-risks 5
 - `outputs/comite.md` saída pronta para comitê
 - `outputs/comite.json` saída estruturada
 - `config/risk_rules.yaml` regras de risco versionáveis
+- `config/mappings.json` aliases de colunas + campos obrigatórios
 - `logs/run-*.log` trilha de execução
 
 ## Campos esperados (mínimo)
