@@ -5,7 +5,6 @@ import datetime as dt
 import glob
 import json
 import logging
-import os
 import re
 from pathlib import Path
 from typing import Any, Dict, List, Tuple
@@ -39,7 +38,6 @@ def to_float(val: Any) -> float:
     if not s:
         return 0.0
     s = s.replace("R$", "").replace("%", "").strip()
-    # handle pt-BR formats: 1.234,56
     if "," in s and "." in s:
         s = s.replace(".", "").replace(",", ".")
     elif "," in s:
@@ -52,14 +50,12 @@ def to_float(val: Any) -> float:
 
 def norm_key(key: str) -> str:
     k = key.strip().lower()
-    k = re.sub(r"\s+", "_", k)
-    return k
+    return re.sub(r"\s+", "_", k)
 
 
 def normalize_row(row: Dict[str, Any], source_file: str, idx: int) -> Dict[str, Any]:
     normalized = {norm_key(k): v for k, v in row.items()}
-
-    out = {
+    return {
         "periodo": normalized.get("periodo") or normalized.get("mes") or normalized.get("data") or "",
         "unidade": normalized.get("unidade") or normalized.get("area") or normalized.get("bu") or "",
         "kpi": normalized.get("kpi") or normalized.get("indicador") or normalized.get("metric") or "",
@@ -70,7 +66,6 @@ def normalize_row(row: Dict[str, Any], source_file: str, idx: int) -> Dict[str, 
         "fonte_arquivo": source_file,
         "linha": idx,
     }
-    return out
 
 
 def load_csv(file_path: Path) -> List[Dict[str, Any]]:
@@ -86,7 +81,7 @@ def load_xlsx(file_path: Path) -> List[Dict[str, Any]]:
     try:
         from openpyxl import load_workbook
     except Exception:
-        logging.warning("openpyxl não encontrado. Ignorando arquivo XLSX: %s", file_path.name)
+        logging.warning("openpyxl não encontrado. Ignorando XLSX: %s", file_path.name)
         return []
 
     wb = load_workbook(file_path, read_only=True, data_only=True)
@@ -129,28 +124,16 @@ def load_rules() -> List[Dict[str, Any]]:
             content = yaml.safe_load(yaml_path.read_text(encoding="utf-8")) or {}
             return content.get("rules", [])
         except Exception as e:
-            logging.warning("Falha ao carregar risk_rules.yaml (%s). Usando regras padrão.", e)
+            logging.warning("Falha ao carregar risk_rules.yaml (%s). Usando padrão.", e)
 
     return [
-        {
-            "name": "kpi_abaixo_meta",
-            "condition": "valor_atual < meta",
-            "impact": 4,
-            "urgency": 4,
-            "description": "KPI abaixo da meta",
-        },
-        {
-            "name": "desvio_critico",
-            "condition": "valor_atual < meta * 0.8",
-            "impact": 5,
-            "urgency": 5,
-            "description": "Desvio crítico vs meta",
-        },
+        {"name": "desvio_critico", "condition": "valor_atual < meta * 0.8", "impact": 5, "urgency": 5, "description": "Desvio crítico vs meta"},
+        {"name": "abaixo_meta", "condition": "valor_atual < meta", "impact": 4, "urgency": 4, "description": "KPI abaixo da meta"},
     ]
 
 
 def eval_condition(cond: str, ctx: Dict[str, Any]) -> bool:
-    allowed = {"valor_atual": ctx["valor_atual"], "meta": ctx["meta"], "variacao": ctx.get("variacao", 0)}
+    allowed = {"valor_atual": ctx["valor_atual"], "meta": ctx["meta"], "variacao": to_float(ctx.get("variacao", 0))}
     try:
         return bool(eval(cond, {"__builtins__": {}}, allowed))
     except Exception:
@@ -172,7 +155,6 @@ def build_facts(rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     for r in rows:
         valor = to_float(r["valor_atual"])
         meta = to_float(r["meta"])
-        diff = valor - meta
         facts.append(
             {
                 "periodo": r["periodo"],
@@ -180,52 +162,63 @@ def build_facts(rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
                 "kpi": r["kpi"],
                 "valor_atual": valor,
                 "meta": meta,
-                "desvio": diff,
+                "desvio": valor - meta,
                 "variacao": r.get("variacao", ""),
                 "observacao": r.get("observacao", ""),
-                "evidence": {
-                    "source_file": r["fonte_arquivo"],
-                    "line": r["linha"],
-                },
+                "evidence": {"source_file": r["fonte_arquivo"], "line": r["linha"]},
             }
         )
     return facts
 
 
 def build_risks(facts: List[Dict[str, Any]], rules: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-    risks: List[Dict[str, Any]] = []
+    grouped: Dict[str, Dict[str, Any]] = {}
     for f in facts:
+        key = f"{f['periodo']}|{f['unidade']}|{f['kpi']}"
         for rule in rules:
-            if eval_condition(rule.get("condition", "False"), f):
-                impact = int(rule.get("impact", 3))
-                urgency = int(rule.get("urgency", 3))
-                score = impact * urgency
-                risks.append(
-                    {
-                        "rule": rule.get("name"),
-                        "description": rule.get("description", "Risco identificado"),
-                        "periodo": f["periodo"],
-                        "unidade": f["unidade"],
-                        "kpi": f["kpi"],
-                        "valor_atual": f["valor_atual"],
-                        "meta": f["meta"],
-                        "impact": impact,
-                        "urgency": urgency,
-                        "score": score,
-                        "level": level(score),
-                        "action_owner_suggestion": f"Responsável de {f['unidade']}",
-                        "action_5w2h": {
-                            "what": f"Recuperar KPI {f['kpi']} para meta",
-                            "why": rule.get("description", "Mitigar risco operacional/financeiro"),
-                            "where": f["unidade"],
-                            "when": "Próximo ciclo semanal",
-                            "who": f"Gestor(a) de {f['unidade']}",
-                            "how": "Plano de ação focado em causa raiz + cadência semanal",
-                            "how_much": "A definir",
-                        },
-                        "evidence": f["evidence"],
-                    }
-                )
+            if not eval_condition(rule.get("condition", "False"), f):
+                continue
+            impact = int(rule.get("impact", 3))
+            urgency = int(rule.get("urgency", 3))
+            score = impact * urgency
+
+            if key not in grouped:
+                grouped[key] = {
+                    "periodo": f["periodo"],
+                    "unidade": f["unidade"],
+                    "kpi": f["kpi"],
+                    "valor_atual": f["valor_atual"],
+                    "meta": f["meta"],
+                    "impact": impact,
+                    "urgency": urgency,
+                    "score": score,
+                    "level": level(score),
+                    "triggered_rules": [rule.get("name")],
+                    "triggered_descriptions": [rule.get("description", "Risco identificado")],
+                    "action_owner_suggestion": f"Responsável de {f['unidade']}",
+                    "action_5w2h": {
+                        "what": f"Recuperar KPI {f['kpi']} para meta",
+                        "why": rule.get("description", "Mitigar risco operacional/financeiro"),
+                        "where": f["unidade"],
+                        "when": "Próximo ciclo semanal",
+                        "who": f"Gestor(a) de {f['unidade']}",
+                        "how": "Plano de ação focado em causa raiz + cadência semanal",
+                        "how_much": "A definir",
+                    },
+                    "evidence": f["evidence"],
+                }
+            else:
+                g = grouped[key]
+                g["triggered_rules"].append(rule.get("name"))
+                g["triggered_descriptions"].append(rule.get("description", "Risco identificado"))
+                if score > g["score"]:
+                    g["impact"], g["urgency"], g["score"], g["level"] = impact, urgency, score, level(score)
+                    g["action_5w2h"]["why"] = rule.get("description", "Mitigar risco operacional/financeiro")
+
+    risks = list(grouped.values())
+    for r in risks:
+        r["triggered_rules"] = sorted(list(set(r["triggered_rules"])))
+        r["triggered_descriptions"] = sorted(list(set(r["triggered_descriptions"])))
     risks.sort(key=lambda x: x["score"], reverse=True)
     return risks
 
@@ -236,25 +229,33 @@ def render_markdown(summary: Dict[str, Any], top_risks: List[Dict[str, Any]]) ->
         "",
         "## Resumo executivo",
         f"- Registros processados: **{summary['processed']}**",
-        f"- Riscos identificados: **{summary['risks']}**",
+        f"- Riscos únicos identificados: **{summary['risks']}**",
         f"- Críticos/Altos: **{summary['critical_high']}**",
         "",
         "## Top riscos priorizados",
     ]
 
     for i, r in enumerate(top_risks, start=1):
+        w = r["action_5w2h"]
         lines.extend(
             [
                 f"### {i}. [{r['level']}] {r['kpi']} — {r['unidade']}",
                 f"- Score: {r['score']} (impacto {r['impact']} x urgência {r['urgency']})",
                 f"- Situação: valor atual {r['valor_atual']} vs meta {r['meta']}",
-                f"- Ação (5W2H/What): {r['action_5w2h']['what']}",
-                f"- Dono sugerido: {r['action_owner_suggestion']}",
+                f"- Regras acionadas: {', '.join(r['triggered_rules'])}",
+                f"- Motivos: {'; '.join(r['triggered_descriptions'])}",
+                "- Plano 5W2H:",
+                f"  - What: {w['what']}",
+                f"  - Why: {w['why']}",
+                f"  - Where: {w['where']}",
+                f"  - When: {w['when']}",
+                f"  - Who: {w['who']}",
+                f"  - How: {w['how']}",
+                f"  - How much: {w['how_much']}",
                 f"- Evidência: {r['evidence']['source_file']}#L{r['evidence']['line']}",
                 "",
             ]
         )
-
     return "\n".join(lines)
 
 
@@ -286,11 +287,7 @@ def run(max_risks: int = 10) -> int:
 
     valid_rows, issues = validate_rows(rows)
     facts = build_facts(valid_rows)
-    rules = load_rules()
-    risks = build_risks(facts, rules)
-
-    PROCESSED.mkdir(parents=True, exist_ok=True)
-    OUTPUTS.mkdir(parents=True, exist_ok=True)
+    risks = build_risks(facts, load_rules())
 
     (PROCESSED / "issues.json").write_text(json.dumps(issues, ensure_ascii=False, indent=2), encoding="utf-8")
     (PROCESSED / "facts.jsonl").write_text("\n".join(json.dumps(f, ensure_ascii=False) for f in facts), encoding="utf-8")
@@ -301,17 +298,14 @@ def run(max_risks: int = 10) -> int:
         "risks": len(risks),
         "critical_high": len([r for r in risks if r["level"] in {"Crítico", "Alto"}]),
         "generated_at": dt.datetime.now().isoformat(),
-        "log_file": str(log_path.name),
+        "log_file": log_path.name,
     }
 
-    report = {
-        "summary": summary,
-        "top_risks": risks[:max_risks],
-    }
+    report = {"summary": summary, "top_risks": risks[:max_risks]}
     (OUTPUTS / "comite.json").write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
     (OUTPUTS / "comite.md").write_text(render_markdown(summary, risks[:max_risks]), encoding="utf-8")
 
-    logging.info("Pipeline concluído. Processados=%s Riscos=%s", summary["processed"], summary["risks"])
+    logging.info("Pipeline concluído. Processados=%s Riscos únicos=%s", summary["processed"], summary["risks"])
     return 0
 
 
