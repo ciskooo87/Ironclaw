@@ -19,6 +19,10 @@ sources/*.csv
 sources/*.xlsx
 sources/*.xls
 
+# Python
+__pycache__/
+*.pyc
+
 # Keep folder structure placeholders
 !config/.gitkeep
 !evals/.gitkeep
