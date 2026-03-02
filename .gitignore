@@ -24,6 +24,10 @@ __pycache__/
 *.pyc
 .venv/
 
+# Next.js frontend
+ironcore-web/node_modules/
+ironcore-web/.next/
+
 # Project runtime/data isolation
 projects/*/sources/*
 projects/*/processed/*
