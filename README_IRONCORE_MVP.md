@@ -7,7 +7,12 @@
 python3 ironcore_mvp.py --register-project projeto-alpha --project-name "Projeto Alpha"
 ```
 
-### 2) Executar pipeline (sempre com projeto)
+### 2) Validar regras de risco do projeto
+```bash
+python3 ironcore_mvp.py --project projeto-alpha --validate-rules
+```
+
+### 3) Executar pipeline (sempre com projeto)
 ```bash
 python3 ironcore_mvp.py --project projeto-alpha
 ```

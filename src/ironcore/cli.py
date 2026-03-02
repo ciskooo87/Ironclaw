@@ -3,6 +3,7 @@ from pathlib import Path
 
 from .pipeline import run_pipeline
 from .projects import get_project, project_dirs, register_project
+from .config import load_rules_with_meta, validate_rules
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -13,6 +14,7 @@ def main() -> None:
     parser.add_argument("--register-project", type=str, default=None, help="Create/register project id")
     parser.add_argument("--project-name", type=str, default=None, help="Optional project display name")
 
+    parser.add_argument("--validate-rules", action="store_true", help="Validate project risk rules and exit")
     parser.add_argument("--max-risks", type=int, default=10)
     parser.add_argument("--input-dir", type=Path, default=None)
     parser.add_argument("--processed-dir", type=Path, default=None)
@@ -41,6 +43,19 @@ def main() -> None:
         raise SystemExit(2)
 
     dirs = project_dirs(ROOT, args.project)
+
+    if args.validate_rules:
+        rules, meta = load_rules_with_meta(dirs['config'])
+        problems = validate_rules(rules)
+        print(f"Risk rules scope: {meta.get('scope')} | source: {meta.get('source')}")
+        print(f"Rules loaded: {len(rules)}")
+        if problems:
+            print("Validation: FAIL")
+            for p in problems:
+                print(f"- {p}")
+            raise SystemExit(1)
+        print("Validation: PASS")
+        raise SystemExit(0)
 
     code = run_pipeline(
         max_risks=args.max_risks,
