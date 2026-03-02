@@ -1,0 +1,11 @@
+{
+  "updated_at": "2026-03-02T15:23:30.941072",
+  "run_id": "eval-base",
+  "metrics": {
+    "processed": 4,
+    "risks": 3,
+    "critical_high": 3,
+    "issues": 0,
+    "evidence_coverage": 1.0
+  }
+}

@@ -23,6 +23,15 @@ Falhar execução se houver inconsistências de dados:
 python3 ironcore_mvp.py --fail-on-issues
 ```
 
+Avaliação contínua + baseline:
+```bash
+# primeira execução (cria baseline)
+python3 ironcore_mvp.py --run-id dia1 --update-baseline
+
+# próximas execuções (compara com baseline)
+python3 ironcore_mvp.py --run-id dia2 --fail-on-regression
+```
+
 ## Estrutura
 - `sources/` entradas (.csv e .xlsx)
 - `processed/facts.jsonl` fatos normalizados com evidência
