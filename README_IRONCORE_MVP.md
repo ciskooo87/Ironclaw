@@ -39,6 +39,11 @@ Ativar recomendações com LLM (DeepSeek):
 python3 ironcore_mvp.py --project projeto-alpha --llm-enable --llm-model deepseek-chat --llm-max-items 10
 ```
 
+Automação diária por projeto (script):
+```bash
+./scripts/run_project_daily.sh projeto-alpha
+```
+
 Avaliação contínua + baseline:
 ```bash
 # primeira execução (cria baseline)
