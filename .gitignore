@@ -22,6 +22,7 @@ sources/*.xls
 # Python
 __pycache__/
 *.pyc
+.venv/
 
 # Project runtime/data isolation
 projects/*/sources/*
