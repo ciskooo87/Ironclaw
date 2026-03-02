@@ -1,0 +1,19 @@
+version: 1
+rules:
+  - name: desvio_critico_meta
+    condition: valor_atual < meta * 0.8
+    impact: 5
+    urgency: 5
+    description: Desvio crítico frente à meta
+
+  - name: abaixo_da_meta
+    condition: valor_atual < meta
+    impact: 4
+    urgency: 4
+    description: KPI abaixo da meta
+
+  - name: alerta_moderado
+    condition: valor_atual < meta * 0.95
+    impact: 3
+    urgency: 3
+    description: KPI com desvio moderado

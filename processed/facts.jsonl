@@ -1,0 +1,4 @@
+{"periodo": "2026-02", "unidade": "Comercial", "kpi": "Receita Mensal", "valor_atual": 780000.0, "meta": 1000000.0, "desvio": -220000.0, "variacao": "-22%", "observacao": "Perda de contratos chave", "evidence": {"source_file": "sample_base.csv", "line": 2}}
+{"periodo": "2026-02", "unidade": "Operações", "kpi": "OTIF", "valor_atual": 86.0, "meta": 95.0, "desvio": -9.0, "variacao": "-9pp", "observacao": "Atraso em fornecedores", "evidence": {"source_file": "sample_base.csv", "line": 3}}
+{"periodo": "2026-02", "unidade": "Financeiro", "kpi": "Caixa Livre", "valor_atual": 120000.0, "meta": 150000.0, "desvio": -30000.0, "variacao": "-20%", "observacao": "Pressão de capital de giro", "evidence": {"source_file": "sample_base.csv", "line": 4}}
+{"periodo": "2026-02", "unidade": "RH", "kpi": "Turnover Crítico", "valor_atual": 18.0, "meta": 12.0, "desvio": 6.0, "variacao": "+6pp", "observacao": "Saída de líderes", "evidence": {"source_file": "sample_base.csv", "line": 5}}
