@@ -6,9 +6,21 @@
 python3 ironcore_mvp.py
 ```
 
-Opcional:
+Opcional (produção/lote):
 ```bash
-python3 ironcore_mvp.py --max-risks 5
+python3 ironcore_mvp.py \
+  --input-dir ./sources \
+  --processed-dir ./processed \
+  --output-dir ./outputs \
+  --config-dir ./config \
+  --log-dir ./logs \
+  --run-id 20260302-manha \
+  --max-risks 5
+```
+
+Falhar execução se houver inconsistências de dados:
+```bash
+python3 ironcore_mvp.py --fail-on-issues
 ```
 
 ## Estrutura
