@@ -1,0 +1,28 @@
+# OpenClaw / assistant-local files
+.openclaw/
+AGENTS.md
+BOOTSTRAP.md
+HEARTBEAT.md
+IDENTITY.md
+SOUL.md
+TOOLS.md
+USER.md
+memory/
+
+# Runtime/generated artifacts
+logs/*.log
+outputs/*.json
+outputs/*.md
+processed/*.json
+processed/*.jsonl
+sources/*.csv
+sources/*.xlsx
+sources/*.xls
+
+# Keep folder structure placeholders
+!config/.gitkeep
+!evals/.gitkeep
+!logs/.gitkeep
+!outputs/.gitkeep
+!processed/.gitkeep
+!sources/.gitkeep
