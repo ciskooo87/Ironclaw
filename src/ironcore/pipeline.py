@@ -7,9 +7,10 @@ from typing import Dict, List
 from .config import load_mappings, load_rules
 from .evals import run_evals
 from .ingestion import load_csv, load_xlsx
-from .reporting import write_outputs
+from .reporting import write_outputs, cluster_summary
 from .risk_engine import build_facts, build_risks, validate_rows
 from .targets import load_kpi_targets, load_materiality
+from .history import update_risk_history
 
 
 def setup_logging(log_dir: Path, run_id: str | None = None) -> Path:
@@ -84,6 +85,9 @@ def run_pipeline(
     }
 
     eval_result = run_evals(summary, risks[:max_risks], eval_dir, run_id=run_id, update_baseline=update_baseline)
+    clusters = cluster_summary(risks)
+    project_base = config_dir.parent
+    update_risk_history(project_base, summary, risks, clusters)
     write_outputs(output_dir, processed_dir, facts, risks, issues, summary, eval_result, max_risks)
 
     if fail_on_issues and issues:
