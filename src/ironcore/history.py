@@ -2,7 +2,7 @@ import datetime as dt
 import hashlib
 import json
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Tuple
 
 
 def _risk_id(r: Dict[str, Any]) -> str:
@@ -18,6 +18,29 @@ def _load_json(path: Path, default: Any) -> Any:
     if not path.exists():
         return default
     return json.loads(path.read_text(encoding="utf-8"))
+
+
+def _load_sla_thresholds(project_base: Path) -> Tuple[int, int]:
+    # Defaults if project does not define SLA
+    warn_days = 7
+    critical_days = 14
+
+    profile_path = project_base / "config" / "risk_profile.yaml"
+    if not profile_path.exists():
+        return warn_days, critical_days
+
+    try:
+        import yaml  # type: ignore
+
+        cfg = yaml.safe_load(profile_path.read_text(encoding="utf-8")) or {}
+        warn_days = int(cfg.get("sla_days_open_warning", warn_days))
+        critical_days = int(cfg.get("sla_days_open_critical", critical_days))
+    except Exception:
+        pass
+
+    if critical_days < warn_days:
+        critical_days = warn_days
+    return warn_days, critical_days
 
 
 def update_risk_history(project_base: Path, summary: Dict[str, Any], risks: List[Dict[str, Any]], clusters: List[Dict[str, Any]]) -> Dict[str, Any]:
@@ -97,6 +120,46 @@ def update_risk_history(project_base: Path, summary: Dict[str, Any], risks: List
     ledger["risks"] = existing
     ledger_path.write_text(json.dumps(ledger, ensure_ascii=False, indent=2, default=str), encoding="utf-8")
 
+    # SLA alerts (project-customizable)
+    warn_days, critical_days = _load_sla_thresholds(project_base)
+    alerts: List[Dict[str, Any]] = []
+    for v in existing.values():
+        if v.get("status") not in {"open", "reopened"}:
+            continue
+        d = int(v.get("days_open", 0) or 0)
+        level = None
+        if d >= critical_days:
+            level = "critical"
+        elif d >= warn_days:
+            level = "warning"
+        if level:
+            alerts.append(
+                {
+                    "risk_id": v.get("risk_id"),
+                    "level": level,
+                    "days_open": d,
+                    "kpi": v.get("kpi"),
+                    "unidade": v.get("unidade"),
+                    "status": v.get("status"),
+                    "owner": v.get("owner"),
+                }
+            )
+
+    alerts.sort(key=lambda x: (0 if x["level"] == "critical" else 1, -x["days_open"]))
+    (project_base / "outputs" / "sla_alerts.json").write_text(
+        json.dumps(
+            {
+                "generated_at": dt.datetime.now().isoformat(),
+                "thresholds": {"warning_days": warn_days, "critical_days": critical_days},
+                "alerts": alerts,
+            },
+            ensure_ascii=False,
+            indent=2,
+            default=str,
+        ),
+        encoding="utf-8",
+    )
+
     # daily brief
     new_count = len([1 for v in existing.values() if v.get("first_seen") == today])
     open_risks = [v for v in existing.values() if v.get("status") in {"open", "reopened"}]
@@ -108,11 +171,19 @@ def update_risk_history(project_base: Path, summary: Dict[str, Any], risks: List
         f"- Riscos na rodada: {summary.get('risks', 0)}",
         f"- Novos riscos (aprox): {new_count}",
         f"- Riscos abertos/reabertos: {len(open_risks)}",
+        f"- SLA warning/critical (dias): {warn_days}/{critical_days}",
+        f"- Alertas SLA ativos: {len(alerts)}",
         "",
-        "## Top abertos por aging + severidade",
+        "## Top alertas SLA",
     ]
+    for a in alerts[:10]:
+        brief_lines.append(
+            f"- [{a.get('level')}] {a.get('kpi')} | {a.get('unidade')} | days_open={a.get('days_open')} | owner={a.get('owner')}"
+        )
+
+    brief_lines.extend(["", "## Top abertos por aging + severidade"])
     for r in open_risks[:10]:
         brief_lines.append(f"- {r.get('kpi')} | {r.get('unidade')} | status={r.get('status')} | days_open={r.get('days_open')} | score={r.get('severity_current')}")
 
     (project_base / "outputs" / "daily_brief.md").write_text("\n".join(brief_lines), encoding="utf-8")
-    return {"daily_path": str(daily_path), "ledger_path": str(ledger_path)}
+    return {"daily_path": str(daily_path), "ledger_path": str(ledger_path), "alerts": len(alerts)}

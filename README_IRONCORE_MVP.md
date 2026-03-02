@@ -52,8 +52,10 @@ python3 ironcore_mvp.py --run-id dia2 --fail-on-regression
 - `outputs/comite.md` saída pronta para comitê
 - `outputs/comite.json` saída estruturada
 - `outputs/daily_brief.md` resumo diário de acompanhamento
+- `outputs/sla_alerts.json` alertas de SLA (por projeto)
 - `history/daily/YYYY-MM-DD.json` snapshots diários
 - `history/risk_ledger.json` ciclo de vida dos riscos (open/monitoring/resolved/reopened)
+- `config/risk_profile.yaml` thresholds de materialidade e SLA por projeto
 - `config/risk_rules.yaml` regras de risco versionáveis
 - `config/mappings.json` aliases de colunas + campos obrigatórios
 - `logs/run-*.log` trilha de execução
