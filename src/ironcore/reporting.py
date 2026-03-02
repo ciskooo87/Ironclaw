@@ -22,6 +22,8 @@ def risk_cluster(risk: Dict[str, Any]) -> str:
 
 def cluster_summary(risks: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     grouped: Dict[str, Dict[str, Any]] = {}
+    risks_by_cluster: Dict[str, List[Dict[str, Any]]] = {}
+
     for r in risks:
         c = risk_cluster(r)
         g = grouped.setdefault(c, {"cluster": c, "count": 0, "max_score": 0, "critical_high": 0})
@@ -29,8 +31,25 @@ def cluster_summary(risks: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         g["max_score"] = max(g["max_score"], int(r.get("score", 0)))
         if r.get("level") in {"Crítico", "Alto"}:
             g["critical_high"] += 1
+        risks_by_cluster.setdefault(c, []).append(r)
+
     out = list(grouped.values())
     out.sort(key=lambda x: (x["critical_high"], x["max_score"], x["count"]), reverse=True)
+
+    for item in out:
+        c = item["cluster"]
+        top = sorted(risks_by_cluster.get(c, []), key=lambda x: x.get("score", 0), reverse=True)[:3]
+        item["top_actions"] = [
+            {
+                "kpi": t.get("kpi"),
+                "unidade": t.get("unidade"),
+                "score": t.get("score"),
+                "what": t.get("action_5w2h", {}).get("what"),
+                "who": t.get("action_5w2h", {}).get("who"),
+                "when": t.get("action_5w2h", {}).get("when"),
+            }
+            for t in top
+        ]
     return out
 
 
@@ -47,6 +66,8 @@ def render_markdown(summary: Dict[str, Any], top_risks: List[Dict[str, Any]], ev
     ]
     for c in clusters:
         lines.append(f"- **{c['cluster']}**: {c['count']} riscos | críticos/altos={c['critical_high']} | score máx={c['max_score']}")
+        for a in c.get("top_actions", [])[:3]:
+            lines.append(f"  - Ação: {a.get('what')} | Dono: {a.get('who')} | Prazo: {a.get('when')} | KPI: {a.get('kpi')} ({a.get('unidade')})")
 
     lines.extend(["", "## Top riscos priorizados"])
     for i, r in enumerate(top_risks, start=1):
