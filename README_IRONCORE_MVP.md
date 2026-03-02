@@ -34,6 +34,11 @@ Falhar execução se houver inconsistências de dados:
 python3 ironcore_mvp.py --fail-on-issues
 ```
 
+Ativar recomendações com LLM (DeepSeek):
+```bash
+python3 ironcore_mvp.py --project projeto-alpha --llm-enable --llm-model deepseek-chat --llm-max-items 10
+```
+
 Avaliação contínua + baseline:
 ```bash
 # primeira execução (cria baseline)

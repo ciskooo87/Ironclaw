@@ -11,6 +11,7 @@ from .reporting import write_outputs, cluster_summary
 from .risk_engine import build_facts, build_risks, validate_rows
 from .targets import load_kpi_targets, load_materiality
 from .history import update_risk_history
+from .llm import enrich_risks_with_llm
 
 
 def setup_logging(log_dir: Path, run_id: str | None = None) -> Path:
@@ -43,6 +44,9 @@ def run_pipeline(
     fail_on_issues: bool,
     fail_on_regression: bool,
     update_baseline: bool,
+    llm_enable: bool,
+    llm_model: str,
+    llm_max_items: int,
 ) -> int:
     ensure_dirs(input_dir, processed_dir, output_dir, config_dir, log_dir, eval_dir)
     log_path = setup_logging(log_dir, run_id=run_id)
@@ -72,6 +76,8 @@ def run_pipeline(
 
     facts = build_facts(valid_rows, kpi_targets=kpi_targets)
     risks = build_risks(facts, load_rules(config_dir), materiality_min_impact=materiality_min_impact)
+    if llm_enable and risks:
+        risks = enrich_risks_with_llm(risks, max_items=llm_max_items, model=llm_model)
 
     summary = {
         "processed": len(facts),
