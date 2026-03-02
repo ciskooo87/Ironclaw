@@ -14,11 +14,15 @@ def validate_rows(rows: List[Dict[str, Any]], required_fields: List[str]) -> Tup
     return valid, issues
 
 
-def build_facts(rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+def build_facts(rows: List[Dict[str, Any]], kpi_targets: Dict[str, Any] | None = None) -> List[Dict[str, Any]]:
     facts = []
+    kpi_targets = kpi_targets or {}
     for r in rows:
         valor = to_float(r["valor_atual"])
-        meta = to_float(r["meta"])
+        meta_row = to_float(r["meta"])
+        kpi_key = str(r.get("kpi", "")).strip().lower()
+        meta_cfg = to_float(kpi_targets.get(kpi_key, 0)) if kpi_key in kpi_targets else 0
+        meta = meta_cfg if meta_cfg > 0 else meta_row
         facts.append({
             "periodo": r["periodo"], "unidade": r["unidade"], "kpi": r["kpi"],
             "valor_atual": valor, "meta": meta, "desvio": valor - meta,
@@ -46,7 +50,7 @@ def level(score: int) -> str:
     return "Baixo"
 
 
-def build_risks(facts: List[Dict[str, Any]], rules: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+def build_risks(facts: List[Dict[str, Any]], rules: List[Dict[str, Any]], materiality_min_impact: float = 0.0) -> List[Dict[str, Any]]:
     grouped: Dict[str, Dict[str, Any]] = {}
     for f in facts:
         key = f"{f['periodo']}|{f['unidade']}|{f['kpi']}"
@@ -78,6 +82,13 @@ def build_risks(facts: List[Dict[str, Any]], rules: List[Dict[str, Any]]) -> Lis
                     g["impact"], g["urgency"], g["score"], g["level"] = impact, urgency, score, level(score)
                     g["action_5w2h"]["why"] = rule.get("description", "Mitigar risco operacional/financeiro")
     risks = list(grouped.values())
+    if materiality_min_impact > 0:
+        filtered = []
+        for r in risks:
+            gap = abs(float(r.get("meta", 0) or 0) - float(r.get("valor_atual", 0) or 0))
+            if gap >= materiality_min_impact:
+                filtered.append(r)
+        risks = filtered
     for r in risks:
         r["triggered_rules"] = sorted(list(set(r["triggered_rules"]))); r["triggered_descriptions"] = sorted(list(set(r["triggered_descriptions"])))
     risks.sort(key=lambda x: x["score"], reverse=True)

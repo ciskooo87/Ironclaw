@@ -75,7 +75,7 @@ def cluster_summary(risks: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     return out
 
 
-def render_markdown(summary: Dict[str, Any], top_risks: List[Dict[str, Any]], eval_result: Dict[str, Any], clusters: List[Dict[str, Any]]) -> str:
+def render_markdown(summary: Dict[str, Any], top_risks: List[Dict[str, Any]], eval_result: Dict[str, Any], clusters: List[Dict[str, Any]], mothers: List[Dict[str, Any]]) -> str:
     lines = [
         "# Comitê de Turnaround — Saída IRONCORE (MVP)", "", "## Resumo executivo",
         f"- Registros processados: **{summary['processed']}**",
@@ -83,6 +83,7 @@ def render_markdown(summary: Dict[str, Any], top_risks: List[Dict[str, Any]], ev
         f"- Críticos/Altos: **{summary['critical_high']}**",
         f"- Issues de dados: **{summary['issues']}**",
         f"- Status de eval: **{eval_result['status']}**",
+        f"- Materialidade mínima ativa: **{summary.get('materiality_min_impact', 0)}**",
         "",
         "## Priorização por frente",
     ]
@@ -92,6 +93,10 @@ def render_markdown(summary: Dict[str, Any], top_risks: List[Dict[str, Any]], ev
             lines.append(
                 f"  - {a.get('priority')}: {a.get('what')} | Dono: {a.get('who')} | Prazo: {a.get('when')} | KPI: {a.get('kpi')} ({a.get('unidade')}) | Impacto est.: {a.get('impacto_estimado')}"
             )
+
+    lines.extend(["", "## Riscos-mãe (recorrência)"])
+    for m in mothers[:10]:
+        lines.append(f"- {m['kpi']} | {m['unidade']} | ocorrências={m['occurrences']} | tendência={m['trend']} | períodos={', '.join(m['periodos'][:4])}")
 
     lines.extend(["", "## Top riscos priorizados"])
     for i, r in enumerate(top_risks, start=1):
@@ -110,12 +115,53 @@ def render_markdown(summary: Dict[str, Any], top_risks: List[Dict[str, Any]], ev
     return "\n".join(lines)
 
 
+def risk_mothers(risks: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    grouped: Dict[str, Dict[str, Any]] = {}
+    for r in risks:
+        key = f"{r.get('kpi')}|{r.get('unidade')}"
+        g = grouped.setdefault(
+            key,
+            {
+                "kpi": r.get("kpi"),
+                "unidade": r.get("unidade"),
+                "occurrences": 0,
+                "max_score": 0,
+                "periodos": set(),
+            },
+        )
+        g["occurrences"] += 1
+        g["max_score"] = max(g["max_score"], int(r.get("score", 0) or 0))
+        g["periodos"].add(str(r.get("periodo", "")))
+
+    out = []
+    for v in grouped.values():
+        periods = sorted([p for p in v["periodos"] if p])
+        trend = "estável"
+        if len(periods) >= 3:
+            trend = "recorrente"
+        elif len(periods) == 2:
+            trend = "atenção"
+        out.append(
+            {
+                "kpi": v["kpi"],
+                "unidade": v["unidade"],
+                "occurrences": v["occurrences"],
+                "max_score": v["max_score"],
+                "periodos": periods,
+                "trend": trend,
+            }
+        )
+    out.sort(key=lambda x: (x["occurrences"], x["max_score"]), reverse=True)
+    return out[:15]
+
+
 def write_outputs(output_dir: Path, processed_dir: Path, facts: List[Dict[str, Any]], risks: List[Dict[str, Any]], issues: List[Dict[str, Any]], summary: Dict[str, Any], eval_result: Dict[str, Any], max_risks: int) -> None:
     (processed_dir / "issues.json").write_text(json.dumps(issues, ensure_ascii=False, indent=2, default=str), encoding="utf-8")
     (processed_dir / "facts.jsonl").write_text("\n".join(json.dumps(f, ensure_ascii=False, default=str) for f in facts), encoding="utf-8")
     (processed_dir / "risk_register.json").write_text(json.dumps(risks, ensure_ascii=False, indent=2, default=str), encoding="utf-8")
     top_risks = risks[:max_risks]
     clusters = cluster_summary(risks)
-    report = {"summary": summary, "clusters": clusters, "top_risks": top_risks, "issues": issues, "eval": eval_result}
+    mothers = risk_mothers(risks)
+    report = {"summary": summary, "clusters": clusters, "risk_mothers": mothers, "top_risks": top_risks, "issues": issues, "eval": eval_result}
     (output_dir / "comite.json").write_text(json.dumps(report, ensure_ascii=False, indent=2, default=str), encoding="utf-8")
-    (output_dir / "comite.md").write_text(render_markdown(summary, top_risks, eval_result, clusters), encoding="utf-8")
+    (output_dir / "comite.md").write_text(render_markdown(summary, top_risks, eval_result, clusters, mothers), encoding="utf-8")

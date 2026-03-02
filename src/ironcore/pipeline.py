@@ -9,6 +9,7 @@ from .evals import run_evals
 from .ingestion import load_csv, load_xlsx
 from .reporting import write_outputs
 from .risk_engine import build_facts, build_risks, validate_rows
+from .targets import load_kpi_targets, load_materiality
 
 
 def setup_logging(log_dir: Path, run_id: str | None = None) -> Path:
@@ -65,12 +66,16 @@ def run_pipeline(
 
     valid_rows, validation_issues = validate_rows(rows, required_fields)
     issues.extend(validation_issues)
-    facts = build_facts(valid_rows)
-    risks = build_risks(facts, load_rules(config_dir))
+    kpi_targets = load_kpi_targets(config_dir)
+    materiality_min_impact = load_materiality(config_dir)
+
+    facts = build_facts(valid_rows, kpi_targets=kpi_targets)
+    risks = build_risks(facts, load_rules(config_dir), materiality_min_impact=materiality_min_impact)
 
     summary = {
         "processed": len(facts),
         "risks": len(risks),
+        "materiality_min_impact": materiality_min_impact,
         "critical_high": len([r for r in risks if r["level"] in {"Crítico", "Alto"}]),
         "issues": len(issues),
         "generated_at": dt.datetime.now().isoformat(),
