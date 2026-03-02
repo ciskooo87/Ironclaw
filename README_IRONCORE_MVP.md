@@ -56,6 +56,7 @@ python3 ironcore_mvp.py --run-id dia2 --fail-on-regression
 - `history/daily/YYYY-MM-DD.json` snapshots diários
 - `history/risk_ledger.json` ciclo de vida dos riscos (open/monitoring/resolved/reopened)
 - `config/risk_profile.yaml` thresholds de materialidade e SLA por projeto
+- `config/resolution_updates.json` checklist manual para permitir status `resolved`
 - `config/risk_rules.yaml` regras de risco versionáveis
 - `config/mappings.json` aliases de colunas + campos obrigatórios
 - `logs/run-*.log` trilha de execução
