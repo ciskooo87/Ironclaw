@@ -198,6 +198,7 @@ with control_tab:
     with c1:
         llm_items = st.slider("Qtd. riscos para enriquecimento IA", 1, 50, 10)
         model = st.text_input("Modelo LLM", value="deepseek-chat")
+        analysis_mode = st.selectbox("Modo de análise", ["since_last", "daily", "full"], index=0)
     with c2:
         run_label = st.text_input("Label da execução", value=f"manual-{datetime.now().strftime('%Y%m%d-%H%M%S')}")
         confirm = st.checkbox("Confirmo execução da análise IA para este projeto")
@@ -217,6 +218,8 @@ with control_tab:
             model,
             "--llm-max-items",
             str(llm_items),
+            "--analysis-mode",
+            analysis_mode,
             "--fail-on-regression",
         ]
 

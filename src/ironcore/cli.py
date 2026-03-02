@@ -29,6 +29,7 @@ def main() -> None:
     parser.add_argument("--llm-enable", action="store_true")
     parser.add_argument("--llm-model", type=str, default="deepseek-chat")
     parser.add_argument("--llm-max-items", type=int, default=10)
+    parser.add_argument("--analysis-mode", choices=["since_last", "daily", "full"], default="since_last")
     args = parser.parse_args()
 
     if args.register_project:
@@ -75,6 +76,7 @@ def main() -> None:
         llm_enable=args.llm_enable,
         llm_model=args.llm_model,
         llm_max_items=args.llm_max_items,
+        analysis_mode=args.analysis_mode,
     )
     raise SystemExit(code)
 

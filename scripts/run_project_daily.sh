@@ -22,4 +22,5 @@ fi
   --llm-enable \
   --llm-model deepseek-chat \
   --llm-max-items 10 \
+  --analysis-mode since_last \
   --fail-on-regression

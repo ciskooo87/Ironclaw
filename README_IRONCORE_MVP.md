@@ -39,6 +39,12 @@ Ativar recomendações com LLM (DeepSeek):
 python3 ironcore_mvp.py --project projeto-alpha --llm-enable --llm-model deepseek-chat --llm-max-items 10
 ```
 
+Modo incremental (somente novos dados):
+```bash
+python3 ironcore_mvp.py --project projeto-alpha --analysis-mode since_last
+# opções: since_last | daily | full
+```
+
 Automação diária por projeto (script):
 ```bash
 ./scripts/run_project_daily.sh projeto-alpha
@@ -71,6 +77,7 @@ python3 ironcore_mvp.py --run-id dia2 --fail-on-regression
 - `outputs/sla_alerts.json` alertas de SLA (por projeto)
 - `history/daily/YYYY-MM-DD.json` snapshots diários
 - `history/risk_ledger.json` ciclo de vida dos riscos (open/monitoring/resolved/reopened)
+- `history/checkpoint.json` último período processado (modo incremental)
 - `config/risk_profile.yaml` thresholds de materialidade e SLA por projeto
 - `config/resolution_updates.json` checklist manual para permitir status `resolved`
 - `config/risk_rules.yaml` regras de risco versionáveis

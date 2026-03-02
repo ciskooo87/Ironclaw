@@ -12,6 +12,7 @@ from .risk_engine import build_facts, build_risks, validate_rows
 from .targets import load_kpi_targets, load_materiality
 from .history import update_risk_history
 from .llm import enrich_risks_with_llm
+from .incremental import load_checkpoint, save_checkpoint, filter_rows_incremental
 
 
 def setup_logging(log_dir: Path, run_id: str | None = None) -> Path:
@@ -47,6 +48,7 @@ def run_pipeline(
     llm_enable: bool,
     llm_model: str,
     llm_max_items: int,
+    analysis_mode: str,
 ) -> int:
     ensure_dirs(input_dir, processed_dir, output_dir, config_dir, log_dir, eval_dir)
     log_path = setup_logging(log_dir, run_id=run_id)
@@ -69,6 +71,10 @@ def run_pipeline(
         loaded_rows, load_issues = load_xlsx(f, aliases, required_fields)
         rows.extend(loaded_rows); issues.extend(load_issues)
 
+    project_base = config_dir.parent
+    cp = load_checkpoint(project_base)
+    rows = filter_rows_incremental(rows, analysis_mode, cp)
+
     valid_rows, validation_issues = validate_rows(rows, required_fields)
     issues.extend(validation_issues)
     kpi_targets = load_kpi_targets(config_dir)
@@ -80,6 +86,7 @@ def run_pipeline(
         risks = enrich_risks_with_llm(risks, max_items=llm_max_items, model=llm_model)
 
     summary = {
+        "analysis_mode": analysis_mode,
         "processed": len(facts),
         "risks": len(risks),
         "materiality_min_impact": materiality_min_impact,
@@ -92,9 +99,11 @@ def run_pipeline(
 
     eval_result = run_evals(summary, risks[:max_risks], eval_dir, run_id=run_id, update_baseline=update_baseline)
     clusters = cluster_summary(risks)
-    project_base = config_dir.parent
     update_risk_history(project_base, summary, risks, clusters)
     write_outputs(output_dir, processed_dir, facts, risks, issues, summary, eval_result, max_risks)
+
+    periodos = [str(r.get("periodo", "")) for r in valid_rows]
+    save_checkpoint(project_base, run_id, periodos)
 
     if fail_on_issues and issues:
         return 3
