@@ -33,6 +33,7 @@ python3 ironcore_mvp.py --run-id dia2 --fail-on-regression
 ```
 
 ## Estrutura
+- `src/ironcore/` código modular (ingestion, config, risk_engine, reporting, evals, pipeline, cli)
 - `sources/` entradas (.csv e .xlsx)
 - `processed/facts.jsonl` fatos normalizados com evidência
 - `processed/risk_register.json` riscos priorizados

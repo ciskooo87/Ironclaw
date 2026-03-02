@@ -1,0 +1,88 @@
+import datetime as dt
+import glob
+import logging
+from pathlib import Path
+from typing import Dict, List
+
+from .config import load_mappings, load_rules
+from .evals import run_evals
+from .ingestion import load_csv, load_xlsx
+from .reporting import write_outputs
+from .risk_engine import build_facts, build_risks, validate_rows
+
+
+def setup_logging(log_dir: Path, run_id: str | None = None) -> Path:
+    ts = run_id or dt.datetime.now().strftime("%Y%m%d-%H%M%S")
+    log_path = log_dir / f"run-{ts}.log"
+    log_dir.mkdir(parents=True, exist_ok=True)
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s [%(levelname)s] %(message)s",
+        handlers=[logging.FileHandler(log_path), logging.StreamHandler()],
+    )
+    return log_path
+
+
+def ensure_dirs(*dirs: Path) -> None:
+    for d in dirs:
+        d.mkdir(parents=True, exist_ok=True)
+
+
+def run_pipeline(
+    *,
+    max_risks: int,
+    input_dir: Path,
+    processed_dir: Path,
+    output_dir: Path,
+    config_dir: Path,
+    log_dir: Path,
+    eval_dir: Path,
+    run_id: str | None,
+    fail_on_issues: bool,
+    fail_on_regression: bool,
+    update_baseline: bool,
+) -> int:
+    ensure_dirs(input_dir, processed_dir, output_dir, config_dir, log_dir, eval_dir)
+    log_path = setup_logging(log_dir, run_id=run_id)
+    logging.info("Iniciando pipeline MVP IRONCORE")
+
+    aliases, required_fields = load_mappings(config_dir)
+    files = [Path(p) for p in glob.glob(str(input_dir / "*"))]
+    csv_files = [p for p in files if p.suffix.lower() == ".csv"]
+    xlsx_files = [p for p in files if p.suffix.lower() in {".xlsx", ".xlsm", ".xls"}]
+    if not csv_files and not xlsx_files:
+        logging.warning("Nenhum arquivo de entrada em %s", input_dir)
+        return 2
+
+    rows: List[Dict] = []
+    issues: List[Dict] = []
+    for f in csv_files:
+        loaded_rows, load_issues = load_csv(f, aliases, required_fields)
+        rows.extend(loaded_rows); issues.extend(load_issues)
+    for f in xlsx_files:
+        loaded_rows, load_issues = load_xlsx(f, aliases, required_fields)
+        rows.extend(loaded_rows); issues.extend(load_issues)
+
+    valid_rows, validation_issues = validate_rows(rows, required_fields)
+    issues.extend(validation_issues)
+    facts = build_facts(valid_rows)
+    risks = build_risks(facts, load_rules(config_dir))
+
+    summary = {
+        "processed": len(facts),
+        "risks": len(risks),
+        "critical_high": len([r for r in risks if r["level"] in {"Crítico", "Alto"}]),
+        "issues": len(issues),
+        "generated_at": dt.datetime.now().isoformat(),
+        "log_file": log_path.name,
+        "run_id": run_id,
+    }
+
+    eval_result = run_evals(summary, risks[:max_risks], eval_dir, run_id=run_id, update_baseline=update_baseline)
+    write_outputs(output_dir, processed_dir, facts, risks, issues, summary, eval_result, max_risks)
+
+    if fail_on_issues and issues:
+        return 3
+    if fail_on_regression and eval_result["regressions"]:
+        return 4
+    return 0
