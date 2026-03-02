@@ -44,6 +44,12 @@ Automação diária por projeto (script):
 ./scripts/run_project_daily.sh projeto-alpha
 ```
 
+Dashboard local (Streamlit):
+```bash
+.venv/bin/pip install -r requirements.txt
+.venv/bin/streamlit run dashboard_app.py --server.port 8501 --server.address 0.0.0.0
+```
+
 Avaliação contínua + baseline:
 ```bash
 # primeira execução (cria baseline)
