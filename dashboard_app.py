@@ -15,7 +15,6 @@ RUNNER = ROOT / "ironcore_mvp.py"
 
 st.set_page_config(page_title="IronCore Command Center", page_icon="🛡️", layout="wide")
 
-# ---------- STYLE ----------
 st.markdown(
     """
     <style>
@@ -39,7 +38,24 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-# ---------- DATA LOAD ----------
+
+def load_json(path: Path, default):
+    if not path.exists():
+        return default
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
+def previous_daily_summary(base: Path):
+    daily_dir = base / "history" / "daily"
+    if not daily_dir.exists():
+        return None
+    files = sorted(daily_dir.glob("*.json"))
+    if len(files) < 2:
+        return None
+    prev = json.loads(files[-2].read_text(encoding="utf-8"))
+    return prev.get("summary", {})
+
+
 projects = sorted([p.name for p in PROJECTS_DIR.iterdir() if p.is_dir()]) if PROJECTS_DIR.exists() else []
 if not projects:
     st.warning("Nenhum projeto encontrado")
@@ -58,7 +74,7 @@ if not comite_path.exists():
     st.error(f"Sem saída: {comite_path}")
     st.stop()
 
-comite = json.loads(comite_path.read_text(encoding="utf-8"))
+comite = load_json(comite_path, {})
 summary = comite.get("summary", {})
 clusters = comite.get("clusters", [])
 top_risks = comite.get("top_risks", [])
@@ -66,21 +82,20 @@ top_risks = comite.get("top_risks", [])
 cluster_df = pd.DataFrame(clusters)
 risk_df = pd.DataFrame(top_risks)
 
-sla_payload = {"alerts": [], "thresholds": {}}
-if sla_path.exists():
-    sla_payload = json.loads(sla_path.read_text(encoding="utf-8"))
+sla_payload = load_json(sla_path, {"alerts": [], "thresholds": {}})
 alerts = sla_payload.get("alerts", [])
 
 ledger_status = {}
-if ledger_path.exists():
-    ledger = json.loads(ledger_path.read_text(encoding="utf-8"))
-    for r in ledger.get("risks", {}).values():
-        s = r.get("status", "unknown")
-        ledger_status[s] = ledger_status.get(s, 0) + 1
+ledger = load_json(ledger_path, {"risks": {}})
+for r in ledger.get("risks", {}).values():
+    s = r.get("status", "unknown")
+    ledger_status[s] = ledger_status.get(s, 0) + 1
 
 # ---------- SECURITY POSTURE GATE ----------
 if "posture_ok" not in st.session_state:
     st.session_state.posture_ok = False
+if "attack_sim" not in st.session_state:
+    st.session_state.attack_sim = None
 
 if not st.session_state.posture_ok:
     st.markdown("""
@@ -89,7 +104,6 @@ if not st.session_state.posture_ok:
       <p>Validação de confiança antes de entrar no Command Center.</p>
     </div>
     """, unsafe_allow_html=True)
-
     c1, c2 = st.columns([1, 1])
     with c1:
         st.success("✔ Data Protected")
@@ -97,7 +111,6 @@ if not st.session_state.posture_ok:
     with c2:
         st.success("✔ Tenant Isolation Active")
         st.success("✔ No Active Breach")
-
     if st.button("Enter Command Center", type="primary"):
         st.session_state.posture_ok = True
         st.rerun()
@@ -109,15 +122,19 @@ mode = summary.get("analysis_mode", "-")
 processed = int(summary.get("processed", 0) or 0)
 trust_score = 94 if len(alerts) == 0 else max(75, 94 - min(20, len(alerts) * 3))
 
-st.markdown(
-    """
-    <div class='hero'>
-      <h1>🛡️ IronCore Command Center</h1>
-      <p>Sistema nervoso operacional para risco, continuidade e decisão.</p>
-    </div>
-    """,
-    unsafe_allow_html=True,
-)
+prev = previous_daily_summary(base)
+delta_risks = None
+delta_critical = None
+if prev:
+    delta_risks = int(summary.get("risks", 0)) - int(prev.get("risks", 0))
+    delta_critical = int(summary.get("critical_high", 0)) - int(prev.get("critical_high", 0))
+
+st.markdown("""
+<div class='hero'>
+  <h1>🛡️ IronCore Command Center</h1>
+  <p>Sistema nervoso operacional para risco, continuidade e decisão.</p>
+</div>
+""", unsafe_allow_html=True)
 
 st.markdown(
     f"<span class='pill'>Projeto: <b>{project_id}</b></span>"
@@ -128,7 +145,7 @@ st.markdown(
 )
 
 st.markdown(
-    f"""
+    """
     <div class='trust'>
       <b>Trust Bar:</b>
       Encryption: <span style='color:var(--ok)'>ACTIVE</span> ·
@@ -143,8 +160,8 @@ st.markdown(
 
 m1, m2, m3, m4, m5, m6 = st.columns(6)
 m1.metric("SYSTEM TRUST SCORE", f"{trust_score}/100")
-m2.metric("Riscos", summary.get("risks", 0))
-m3.metric("Críticos/Altos", summary.get("critical_high", 0))
+m2.metric("Riscos", summary.get("risks", 0), delta=delta_risks)
+m3.metric("Críticos/Altos", summary.get("critical_high", 0), delta=delta_critical)
 m4.metric("Ação exigida", "SIM" if len(alerts) > 0 else "NÃO")
 m5.metric("Novos dados", "SIM" if processed > 0 else "NÃO", delta=processed if processed > 0 else 0)
 m6.metric("Issues", summary.get("issues", 0))
@@ -188,26 +205,88 @@ with security:
     </div>
     """, unsafe_allow_html=True)
 
-    if view_mode == "Technical":
-        st.caption("Technical view: detalhes de anomalia e trilha podem ser exibidos aqui na próxima iteração.")
+    st.subheader("Attack Simulation")
+    if st.button("Simulate Breach", type="secondary"):
+        st.session_state.attack_sim = {
+            "incident": random.choice(["Key exfiltration attempt", "Model abuse pattern", "Unauthorized tenant access"]),
+            "blast_radius": random.choice(["Zero", "Contained", "Low"]),
+            "controls": ["Tenant isolation", "Key ownership", "Policy guardrails", "Audit trail"],
+            "status": "Contained",
+            "response_time_sec": random.randint(18, 75),
+        }
+
+    if st.session_state.attack_sim:
+        sim = st.session_state.attack_sim
+        st.warning(f"Incident: {sim['incident']}")
+        st.success(f"Status: {sim['status']} | Blast radius: {sim['blast_radius']} | Response: {sim['response_time_sec']}s")
+        st.write("Controls activated:", ", ".join(sim["controls"]))
 
 with actions:
     st.subheader("Recommended Actions")
+    inbox = []
+
     if not cluster_df.empty and "critical_high" in cluster_df.columns:
         top = cluster_df.sort_values("critical_high", ascending=False).head(5)
         for _, row in top.iterrows():
-            st.markdown(
-                f"<div class='decision'><b>{row.get('cluster')}</b><br/>"
-                f"Priorizar resposta nessa frente · críticos/altos: <b>{int(row.get('critical_high',0))}</b>"
-                f" · impacto estimado: <b>{row.get('impacto_estimado_cluster',0)}</b></div>",
-                unsafe_allow_html=True,
+            inbox.append(
+                {
+                    "priority": "P1" if int(row.get("critical_high", 0)) >= 20 else "P2",
+                    "item": f"Priorizar frente {row.get('cluster')}",
+                    "impact": row.get("impacto_estimado_cluster", 0),
+                    "status": "recommended",
+                }
             )
+
+    for a in alerts[:5]:
+        inbox.append(
+            {
+                "priority": "P1" if a.get("level") == "critical" else "P2",
+                "item": f"SLA {a.get('level')} — {a.get('kpi')} ({a.get('unidade')})",
+                "impact": a.get("days_open", 0),
+                "status": "attention",
+            }
+        )
+
+    inbox_df = pd.DataFrame(inbox).sort_values(by=["priority", "impact"], ascending=[True, False]) if inbox else pd.DataFrame()
+    if not inbox_df.empty:
+        st.dataframe(inbox_df, use_container_width=True, hide_index=True)
     else:
         st.info("Sem ações recomendadas no momento")
 
-    if brief_path.exists():
-        with st.expander("Daily Brief"):
-            st.markdown(brief_path.read_text(encoding="utf-8"))
+    c1, c2, c3 = st.columns(3)
+    if c1.button("Assign"):
+        st.success("Action assigned (mock workflow).")
+    if c2.button("Mark in progress"):
+        st.info("Action moved to in-progress (mock workflow).")
+    if c3.button("Request evidence"):
+        st.warning("Evidence request issued (mock workflow).")
+
+    # One-click committee brief
+    st.subheader("Committee Brief")
+    brief_lines = [
+        f"# Committee Brief — {project_id}",
+        f"Run: {run_id}",
+        "",
+        f"- Trust Score: {trust_score}/100",
+        f"- Risks: {summary.get('risks', 0)}",
+        f"- Critical/High: {summary.get('critical_high', 0)}",
+        f"- SLA Alerts: {len(alerts)}",
+        "",
+        "## Top Decisions",
+    ]
+    for _, row in (cluster_df.sort_values("critical_high", ascending=False).head(3).iterrows() if not cluster_df.empty else []):
+        brief_lines.append(f"- Priorizar {row.get('cluster')} (critical/high={int(row.get('critical_high', 0))})")
+
+    brief_md = "\n".join(brief_lines)
+    out_brief = base / "outputs" / "committee_brief.md"
+    out_brief.write_text(brief_md, encoding="utf-8")
+
+    st.download_button(
+        "Download Committee Brief (MD)",
+        data=brief_md,
+        file_name=f"committee-brief-{project_id}-{datetime.now().strftime('%Y%m%d-%H%M')}.md",
+        mime="text/markdown",
+    )
 
 with control:
     st.subheader("Run Analysis (manual confirmation required)")
@@ -244,7 +323,7 @@ with control:
 with technical:
     st.subheader("Audit Timeline")
     if view_mode == "Executive":
-        st.info("Ative Technical View no menu lateral para ver dados de auditoria detalhados.")
+        st.info("Ative Technical View no menu lateral para ver dados detalhados.")
     else:
         st.dataframe(cluster_df, use_container_width=True, hide_index=True)
         st.dataframe(risk_df.head(30), use_container_width=True, hide_index=True)
