@@ -54,9 +54,9 @@ def load_csv(file_path: Path, aliases: Dict[str, List[str]], required_fields: Li
     return rows, issues
 
 
-def _canonical_from_sheet_row(sheet_name: str, row: Dict[str, Any], source_file: str, idx: int) -> List[Dict[str, Any]]:
+def _canonical_from_sheet_row(sheet_name: str, row: Dict[str, Any], source_file: str, idx: int, fallback_periodo: Any = "") -> List[Dict[str, Any]]:
     s = norm_key(sheet_name)
-    periodo = row.get("mes_/_ano") or row.get("dia/mes_/_ano") or row.get("mes/ano") or ""
+    periodo = row.get("mes_/_ano") or row.get("dia/mes_/_ano") or row.get("mes/ano") or fallback_periodo or ""
 
     def rec(kpi: str, valor: Any, meta: Any = 0, unidade: str | None = None, variacao: Any = "", obs: Any = "") -> Dict[str, Any]:
         return {
@@ -127,19 +127,28 @@ def load_xlsx(file_path: Path, aliases: Dict[str, List[str]], required_fields: L
         if not data:
             continue
         headers = normalize_headers([str(h or "") for h in data[0]])
+        last_periodo = ""
 
         # Path A: already canonical sheet
         missing_headers = validate_required_headers(headers, aliases, required_fields)
         if not missing_headers:
             for i, values in enumerate(data[1:], start=2):
                 row_raw = {headers[c]: values[c] for c in range(min(len(headers), len(values)))}
-                all_rows.append(normalize_row(row_raw, f"{file_path.name}::{ws.title}", i, aliases))
+                row_norm = normalize_row(row_raw, f"{file_path.name}::{ws.title}", i, aliases)
+                if str(row_norm.get("periodo", "")).strip() == "" and last_periodo:
+                    row_norm["periodo"] = last_periodo
+                elif str(row_norm.get("periodo", "")).strip() != "":
+                    last_periodo = row_norm["periodo"]
+                all_rows.append(row_norm)
             continue
 
         # Path B: known business sheet -> convert to canonical records
         for i, values in enumerate(data[1:], start=2):
             row_raw = {headers[c]: values[c] for c in range(min(len(headers), len(values)))}
-            canonical_rows = _canonical_from_sheet_row(ws.title, row_raw, file_path.name, i)
+            row_periodo = row_raw.get("mes_/_ano") or row_raw.get("dia/mes_/_ano") or row_raw.get("mes/ano") or ""
+            if str(row_periodo).strip() != "":
+                last_periodo = row_periodo
+            canonical_rows = _canonical_from_sheet_row(ws.title, row_raw, file_path.name, i, fallback_periodo=last_periodo)
             all_rows.extend(canonical_rows)
 
     if not all_rows:
