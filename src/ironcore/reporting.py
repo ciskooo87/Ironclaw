@@ -20,6 +20,23 @@ def risk_cluster(risk: Dict[str, Any]) -> str:
     return "Outros"
 
 
+def _priority_from_rank(rank: int) -> str:
+    return {1: "P1", 2: "P2"}.get(rank, "P3")
+
+
+def _impact_estimate(risk: Dict[str, Any]) -> float:
+    # Heurística simples: gap absoluto x fator de prioridade
+    try:
+        valor = float(risk.get("valor_atual", 0) or 0)
+        meta = float(risk.get("meta", 0) or 0)
+        gap = abs(meta - valor)
+        score = int(risk.get("score", 0) or 0)
+        factor = 1.0 + (score / 25.0)
+        return round(gap * factor, 2)
+    except Exception:
+        return 0.0
+
+
 def cluster_summary(risks: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     grouped: Dict[str, Dict[str, Any]] = {}
     risks_by_cluster: Dict[str, List[Dict[str, Any]]] = {}
@@ -39,17 +56,22 @@ def cluster_summary(risks: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     for item in out:
         c = item["cluster"]
         top = sorted(risks_by_cluster.get(c, []), key=lambda x: x.get("score", 0), reverse=True)[:3]
-        item["top_actions"] = [
-            {
-                "kpi": t.get("kpi"),
-                "unidade": t.get("unidade"),
-                "score": t.get("score"),
-                "what": t.get("action_5w2h", {}).get("what"),
-                "who": t.get("action_5w2h", {}).get("who"),
-                "when": t.get("action_5w2h", {}).get("when"),
-            }
-            for t in top
-        ]
+        actions = []
+        for idx, t in enumerate(top, start=1):
+            actions.append(
+                {
+                    "priority": _priority_from_rank(idx),
+                    "kpi": t.get("kpi"),
+                    "unidade": t.get("unidade"),
+                    "score": t.get("score"),
+                    "what": t.get("action_5w2h", {}).get("what"),
+                    "who": t.get("action_5w2h", {}).get("who"),
+                    "when": t.get("action_5w2h", {}).get("when"),
+                    "impacto_estimado": _impact_estimate(t),
+                }
+            )
+        item["top_actions"] = actions
+        item["impacto_estimado_cluster"] = round(sum(a["impacto_estimado"] for a in actions), 2)
     return out
 
 
@@ -65,9 +87,11 @@ def render_markdown(summary: Dict[str, Any], top_risks: List[Dict[str, Any]], ev
         "## Priorização por frente",
     ]
     for c in clusters:
-        lines.append(f"- **{c['cluster']}**: {c['count']} riscos | críticos/altos={c['critical_high']} | score máx={c['max_score']}")
+        lines.append(f"- **{c['cluster']}**: {c['count']} riscos | críticos/altos={c['critical_high']} | score máx={c['max_score']} | impacto estimado={c.get('impacto_estimado_cluster', 0)}")
         for a in c.get("top_actions", [])[:3]:
-            lines.append(f"  - Ação: {a.get('what')} | Dono: {a.get('who')} | Prazo: {a.get('when')} | KPI: {a.get('kpi')} ({a.get('unidade')})")
+            lines.append(
+                f"  - {a.get('priority')}: {a.get('what')} | Dono: {a.get('who')} | Prazo: {a.get('when')} | KPI: {a.get('kpi')} ({a.get('unidade')}) | Impacto est.: {a.get('impacto_estimado')}"
+            )
 
     lines.extend(["", "## Top riscos priorizados"])
     for i, r in enumerate(top_risks, start=1):
