@@ -227,7 +227,22 @@ with control_tab:
             st.success(f"Análise concluída com sucesso. Run: {run_label}")
             with st.expander("Log da execução"):
                 st.code(proc.stdout or "(sem stdout)")
-            st.info("Atualize a página para carregar os dados novos.")
+
+            # Quick result preview in the same tab
+            try:
+                latest = json.loads((base / "outputs" / "comite.json").read_text(encoding="utf-8"))
+                s = latest.get("summary", {})
+                top = latest.get("top_risks", [])
+                llm_ok = sum(1 for r in top if r.get("llm_action_status") == "accepted")
+                st.info(
+                    f"Resultado carregado: run={s.get('run_id')} | riscos={s.get('risks')} | "
+                    f"crit/alt={s.get('critical_high')} | llm accepted(top)={llm_ok}/{len(top)}"
+                )
+            except Exception:
+                st.info("Execução concluída. Vá para as abas 'Riscos' e 'Visão Geral' para ver os dados atualizados.")
+
+            if st.button("🔄 Recarregar dashboard agora"):
+                st.rerun()
         else:
             st.error(f"Falha na execução (code={proc.returncode})")
             with st.expander("Detalhes do erro", expanded=True):
