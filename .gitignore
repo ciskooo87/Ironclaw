@@ -23,6 +23,16 @@ sources/*.xls
 __pycache__/
 *.pyc
 
+# Project runtime/data isolation
+projects/*/sources/*
+projects/*/processed/*
+projects/*/outputs/*
+projects/*/logs/*
+projects/*/evals/*
+projects/
+projects_registry.json
+evals/*.json
+
 # Keep folder structure placeholders
 !config/.gitkeep
 !evals/.gitkeep

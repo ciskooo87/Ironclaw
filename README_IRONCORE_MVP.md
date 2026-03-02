@@ -2,8 +2,14 @@
 
 ## Como rodar
 
+### 1) Cadastrar projeto (obrigatório)
 ```bash
-python3 ironcore_mvp.py
+python3 ironcore_mvp.py --register-project projeto-alpha --project-name "Projeto Alpha"
+```
+
+### 2) Executar pipeline (sempre com projeto)
+```bash
+python3 ironcore_mvp.py --project projeto-alpha
 ```
 
 Opcional (produção/lote):
