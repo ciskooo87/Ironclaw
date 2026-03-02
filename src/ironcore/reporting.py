@@ -3,19 +3,56 @@ from pathlib import Path
 from typing import Any, Dict, List
 
 
-def render_markdown(summary: Dict[str, Any], top_risks: List[Dict[str, Any]], eval_result: Dict[str, Any]) -> str:
+def risk_cluster(risk: Dict[str, Any]) -> str:
+    key = f"{risk.get('kpi','')} {risk.get('unidade','')}".lower()
+    if any(x in key for x in ["faturamento", "receita", "vendas", "receber"]):
+        return "Receita"
+    if any(x in key for x in ["margem", "cmv", "dre", "resultado"]):
+        return "Margem"
+    if any(x in key for x in ["devolu", "dev "]):
+        return "Devoluções"
+    if any(x in key for x in ["estoque", "material", "custo total"]):
+        return "Estoque"
+    if any(x in key for x in ["fopag", "salario", "fgts", "inss", "encargos", "funcionario"]):
+        return "Pessoas"
+    if any(x in key for x in ["endividamento", "divida", "despesa financeira", "caixa", "pagar"]):
+        return "Endividamento/Caixa"
+    return "Outros"
+
+
+def cluster_summary(risks: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    grouped: Dict[str, Dict[str, Any]] = {}
+    for r in risks:
+        c = risk_cluster(r)
+        g = grouped.setdefault(c, {"cluster": c, "count": 0, "max_score": 0, "critical_high": 0})
+        g["count"] += 1
+        g["max_score"] = max(g["max_score"], int(r.get("score", 0)))
+        if r.get("level") in {"Crítico", "Alto"}:
+            g["critical_high"] += 1
+    out = list(grouped.values())
+    out.sort(key=lambda x: (x["critical_high"], x["max_score"], x["count"]), reverse=True)
+    return out
+
+
+def render_markdown(summary: Dict[str, Any], top_risks: List[Dict[str, Any]], eval_result: Dict[str, Any], clusters: List[Dict[str, Any]]) -> str:
     lines = [
         "# Comitê de Turnaround — Saída IRONCORE (MVP)", "", "## Resumo executivo",
         f"- Registros processados: **{summary['processed']}**",
         f"- Riscos únicos identificados: **{summary['risks']}**",
         f"- Críticos/Altos: **{summary['critical_high']}**",
         f"- Issues de dados: **{summary['issues']}**",
-        f"- Status de eval: **{eval_result['status']}**", "", "## Top riscos priorizados",
+        f"- Status de eval: **{eval_result['status']}**",
+        "",
+        "## Priorização por frente",
     ]
+    for c in clusters:
+        lines.append(f"- **{c['cluster']}**: {c['count']} riscos | críticos/altos={c['critical_high']} | score máx={c['max_score']}")
+
+    lines.extend(["", "## Top riscos priorizados"])
     for i, r in enumerate(top_risks, start=1):
         w = r["action_5w2h"]
         lines.extend([
-            f"### {i}. [{r['level']}] {r['kpi']} — {r['unidade']}",
+            f"### {i}. [{r['level']}] {r['kpi']} — {r['unidade']} ({risk_cluster(r)})",
             f"- Score: {r['score']} (impacto {r['impact']} x urgência {r['urgency']})",
             f"- Situação: valor atual {r['valor_atual']} vs meta {r['meta']}",
             f"- Regras acionadas: {', '.join(r['triggered_rules'])}",
@@ -33,6 +70,7 @@ def write_outputs(output_dir: Path, processed_dir: Path, facts: List[Dict[str, A
     (processed_dir / "facts.jsonl").write_text("\n".join(json.dumps(f, ensure_ascii=False, default=str) for f in facts), encoding="utf-8")
     (processed_dir / "risk_register.json").write_text(json.dumps(risks, ensure_ascii=False, indent=2, default=str), encoding="utf-8")
     top_risks = risks[:max_risks]
-    report = {"summary": summary, "top_risks": top_risks, "issues": issues, "eval": eval_result}
+    clusters = cluster_summary(risks)
+    report = {"summary": summary, "clusters": clusters, "top_risks": top_risks, "issues": issues, "eval": eval_result}
     (output_dir / "comite.json").write_text(json.dumps(report, ensure_ascii=False, indent=2, default=str), encoding="utf-8")
-    (output_dir / "comite.md").write_text(render_markdown(summary, top_risks, eval_result), encoding="utf-8")
+    (output_dir / "comite.md").write_text(render_markdown(summary, top_risks, eval_result, clusters), encoding="utf-8")
