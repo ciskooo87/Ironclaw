@@ -63,7 +63,24 @@ def _pick_col(df: pd.DataFrame, options: list[str]) -> str | None:
     return None
 
 
-def build_cashflow_projection_90d(base: Path, horizon_days: int = 90, lookback_months: int = 6):
+def load_cashflow_settings(base: Path):
+    cfg = base / "config" / "cashflow_settings.json"
+    if not cfg.exists():
+        return {"opening_balance": 0.0}
+    try:
+        return json.loads(cfg.read_text(encoding="utf-8"))
+    except Exception:
+        return {"opening_balance": 0.0}
+
+
+def save_cashflow_settings(base: Path, opening_balance: float):
+    cfg = base / "config" / "cashflow_settings.json"
+    cfg.parent.mkdir(parents=True, exist_ok=True)
+    payload = {"opening_balance": float(opening_balance), "updated_at": datetime.now().isoformat()}
+    cfg.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+
+
+def build_cashflow_projection_90d(base: Path, horizon_days: int = 90, lookback_months: int = 6, opening_balance: float = 0.0):
     src_xlsx = base / "sources" / "base.xlsx"
     if not src_xlsx.exists():
         return None, "Arquivo base.xlsx não encontrado em sources/"
@@ -125,6 +142,7 @@ def build_cashflow_projection_90d(base: Path, horizon_days: int = 90, lookback_m
     })
     proj["fluxo_liquido"] = proj["receber_previsto"] - proj["pagar_previsto"]
     proj["saldo_acumulado"] = proj["fluxo_liquido"].cumsum()
+    proj["saldo_projetado"] = opening_balance + proj["saldo_acumulado"]
 
     scenarios = {
         "conservador": {"receber_mult": 0.85, "pagar_mult": 1.10},
@@ -147,6 +165,9 @@ def build_cashflow_projection_90d(base: Path, horizon_days: int = 90, lookback_m
         "horizon_days": horizon_days,
         "lookback_months": lookback_months,
         "historical_months_used": len(base_hist),
+        "opening_balance": round(opening_balance, 2),
+        "min_projected_balance": round(float(proj["saldo_projetado"].min()), 2),
+        "ending_projected_balance": round(float(proj["saldo_projetado"].iloc[-1]), 2),
         "run_rate_mensal": {
             "receber": round(avg_receber, 2),
             "pagar": round(avg_pagar, 2),
@@ -161,6 +182,7 @@ def build_cashflow_projection_90d(base: Path, horizon_days: int = 90, lookback_m
                 "pagar_previsto": round(float(d["pagar_previsto"]), 2),
                 "fluxo_liquido": round(float(d["fluxo_liquido"]), 2),
                 "saldo_acumulado": round(float(d["saldo_acumulado"]), 2),
+                "saldo_projetado": round(float(d["saldo_projetado"]), 2),
             }
             for _, d in proj.iterrows()
         ],
@@ -311,7 +333,34 @@ with cockpit:
 
 with cashflow:
     st.subheader("Fluxo de Caixa Projetado — 90 dias")
-    cf_data, cf_error = build_cashflow_projection_90d(base=base, horizon_days=90, lookback_months=6)
+
+    def brl(v: float) -> str:
+        return f"R$ {v:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+
+    settings = load_cashflow_settings(base)
+    cfg_opening = float(settings.get("opening_balance", 0.0) or 0.0)
+
+    k1, k2 = st.columns([1, 1])
+    with k1:
+        opening_balance = st.number_input(
+            "Saldo inicial de caixa (R$)",
+            value=cfg_opening,
+            step=1000.0,
+            format="%.2f",
+            help="Use saldo de caixa/bancos no início da projeção.",
+        )
+    with k2:
+        st.caption("Persistência por projeto em config/cashflow_settings.json")
+        if st.button("Salvar saldo inicial"):
+            save_cashflow_settings(base, opening_balance)
+            st.success("Saldo inicial salvo.")
+
+    cf_data, cf_error = build_cashflow_projection_90d(
+        base=base,
+        horizon_days=90,
+        lookback_months=6,
+        opening_balance=float(opening_balance),
+    )
 
     if cf_error:
         st.warning(cf_error)
@@ -320,14 +369,19 @@ with cashflow:
         proj = cf_data["projection"]
 
         c1, c2, c3, c4 = st.columns(4)
-        c1.metric("Entradas 90D (base)", f"R$ {payload['totais_base_90d']['entradas_90d']:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
-        c2.metric("Saídas 90D (base)", f"R$ {payload['totais_base_90d']['saidas_90d']:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
-        c3.metric("Líquido 90D (base)", f"R$ {payload['totais_base_90d']['liquido_90d']:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
-        c4.metric("Run rate mensal líquido", f"R$ {payload['run_rate_mensal']['liquido']:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
+        c1.metric("Entradas 90D (base)", brl(payload["totais_base_90d"]["entradas_90d"]))
+        c2.metric("Saídas 90D (base)", brl(payload["totais_base_90d"]["saidas_90d"]))
+        c3.metric("Líquido 90D (base)", brl(payload["totais_base_90d"]["liquido_90d"]))
+        c4.metric("Run rate mensal líquido", brl(payload["run_rate_mensal"]["liquido"]))
+
+        c5, c6, c7 = st.columns(3)
+        c5.metric("Saldo inicial", brl(payload["opening_balance"]))
+        c6.metric("Menor saldo projetado", brl(payload["min_projected_balance"]))
+        c7.metric("Saldo final projetado", brl(payload["ending_projected_balance"]))
 
         st.caption("Projeção baseada nos últimos 6 meses válidos de Contas a Pagar e Contas a Receber.")
 
-        chart_df = proj[["data", "receber_previsto", "pagar_previsto", "saldo_acumulado"]].set_index("data")
+        chart_df = proj[["data", "receber_previsto", "pagar_previsto", "saldo_projetado"]].set_index("data")
         st.line_chart(chart_df, color=["#34d399", "#ef4444", "#22d3ee"])
 
         scen_df = pd.DataFrame(
