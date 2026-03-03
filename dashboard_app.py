@@ -183,6 +183,10 @@ def build_cashflow_projection_90d(base: Path, horizon_days: int = 90, lookback_m
             "liquido_90d": round(r - p, 2),
         }
 
+    rupture_rows = proj[proj["saldo_projetado"] < 0]
+    rupture_date = None if rupture_rows.empty else rupture_rows.iloc[0]["data"]
+    days_to_rupture = None if rupture_date is None else int((rupture_date - days[0]).days)
+
     payload = {
         "generated_at": datetime.now().isoformat(),
         "horizon_days": horizon_days,
@@ -191,6 +195,11 @@ def build_cashflow_projection_90d(base: Path, horizon_days: int = 90, lookback_m
         "opening_balance": round(opening_balance, 2),
         "min_projected_balance": round(float(proj["saldo_projetado"].min()), 2),
         "ending_projected_balance": round(float(proj["saldo_projetado"].iloc[-1]), 2),
+        "rupture": {
+            "has_rupture": rupture_date is not None,
+            "first_date": None if rupture_date is None else rupture_date.strftime("%Y-%m-%d"),
+            "days_to_rupture": days_to_rupture,
+        },
         "run_rate_mensal": {
             "receber": round(avg_receber, 2),
             "pagar": round(avg_pagar, 2),
@@ -402,6 +411,12 @@ with cashflow:
         c6.metric("Menor saldo projetado", brl(payload["min_projected_balance"]))
         c7.metric("Saldo final projetado", brl(payload["ending_projected_balance"]))
 
+        rupture = payload.get("rupture", {})
+        if rupture.get("has_rupture"):
+            st.error(f"🚨 Ruptura de caixa prevista em {rupture.get('first_date')} (D+{rupture.get('days_to_rupture')})")
+        else:
+            st.success("✅ Sem ruptura de caixa projetada no horizonte de 90 dias")
+
         st.caption("Projeção baseada nos últimos 6 meses válidos de Contas a Pagar e Contas a Receber.")
 
         chart_df = proj[["data", "receber_previsto", "pagar_previsto", "saldo_projetado"]].set_index("data")
@@ -508,7 +523,10 @@ with reconciliation:
         st.write("")
         run_reconciliation = st.button("Executar conciliação D-1", type="primary")
 
-    if run_reconciliation:
+    st.markdown("**Ação rápida**")
+    run_combo = st.button("Executar Conciliação + Atualizar Fluxo", type="secondary")
+
+    if run_reconciliation or run_combo:
         cmd = [
             str(PYTHON_BIN), str(RUNNER),
             "--project", project_id,
@@ -523,6 +541,9 @@ with reconciliation:
         if proc.returncode == 0:
             st.success("Conciliação executada com sucesso.")
             st.code(proc.stdout)
+            if run_combo:
+                st.info("Fluxo de caixa atualizado automaticamente com o saldo apropriado.")
+                st.rerun()
         else:
             st.error(f"Falha na conciliação (código {proc.returncode})")
             st.code((proc.stdout or "") + "\n" + (proc.stderr or ""))
@@ -539,6 +560,19 @@ with reconciliation:
         m3.metric("Conciliados", totals.get("matched_count", 0))
         m4.metric("Pendentes no AP", totals.get("ap_unmatched_count", 0))
         m5.metric("Débitos sem par", totals.get("bank_unmatched_count", 0))
+
+        expected = max(1, int(totals.get("ap_expected_count", 0)))
+        matched = int(totals.get("matched_count", 0))
+        ap_unmatched = int(totals.get("ap_unmatched_count", 0))
+        bank_unmatched = int(totals.get("bank_unmatched_count", 0))
+        match_rate = matched / expected
+
+        if match_rate >= 0.95 and ap_unmatched == 0 and bank_unmatched <= 1:
+            st.success(f"🟢 Semáforo Conciliação: VERDE ({match_rate:.1%} conciliado)")
+        elif match_rate >= 0.80 and ap_unmatched <= 3:
+            st.warning(f"🟡 Semáforo Conciliação: AMARELO ({match_rate:.1%} conciliado)")
+        else:
+            st.error(f"🔴 Semáforo Conciliação: VERMELHO ({match_rate:.1%} conciliado)")
 
         st.caption(f"Último arquivo: {latest_file.name} | Dia conciliado: {recon.get('reconciled_day', '-')}")
         st.caption(f"Saldo apropriado no cashflow: {recon.get('closing_balance', 'n/d')}")
