@@ -56,6 +56,122 @@ def previous_daily_summary(base: Path):
     return prev.get("summary", {})
 
 
+def _pick_col(df: pd.DataFrame, options: list[str]) -> str | None:
+    for c in options:
+        if c in df.columns:
+            return c
+    return None
+
+
+def build_cashflow_projection_90d(base: Path, horizon_days: int = 90, lookback_months: int = 6):
+    src_xlsx = base / "sources" / "base.xlsx"
+    if not src_xlsx.exists():
+        return None, "Arquivo base.xlsx não encontrado em sources/"
+
+    try:
+        ap = pd.read_excel(src_xlsx, sheet_name="CONTAS A PAGAR").rename(columns={"ABRIL ": "ABRIL"})
+        ar = pd.read_excel(src_xlsx, sheet_name="CONTAS A RECEBER")
+    except Exception as e:
+        return None, f"Falha ao carregar planilha: {e}"
+
+    date_ap = _pick_col(ap, ["MÊS / ANO", "MES / ANO", "MÊS/ANO", "MES/ANO"])
+    date_ar = _pick_col(ar, ["MÊS/ANO", "MES/ANO", "MÊS / ANO", "MES / ANO"])
+    val_ar = _pick_col(ar, ["VALOR", "Valor", "valor"])
+
+    if not date_ap or not date_ar or not val_ar:
+        return None, "Colunas obrigatórias não encontradas em contas a pagar/receber"
+
+    month_map = {
+        1: "JANEIRO", 2: "FEVEREIRO", 3: "MARÇO", 4: "ABRIL", 5: "MAIO", 6: "JUNHO",
+        7: "JULHO", 8: "AGOSTO", 9: "SETEMBRO", 10: "OUTUBRO", 11: "NOVEMBRO", 12: "DEZEMBRO",
+    }
+
+    ap = ap.copy()
+    ap[date_ap] = pd.to_datetime(ap[date_ap], errors="coerce")
+    ap = ap[ap[date_ap].notna()]
+
+    def ap_value(row):
+        col = month_map.get(int(row[date_ap].month))
+        v = row.get(col, 0)
+        return float(v) if pd.notna(v) else 0.0
+
+    ap["valor_ap"] = ap.apply(ap_value, axis=1)
+
+    ar = ar.copy()
+    ar[date_ar] = pd.to_datetime(ar[date_ar], errors="coerce")
+    ar[val_ar] = pd.to_numeric(ar[val_ar], errors="coerce").fillna(0.0)
+    ar = ar[ar[date_ar].notna()]
+
+    monthly_ap = ap.groupby(ap[date_ap].dt.to_period("M"))["valor_ap"].sum()
+    monthly_ar = ar.groupby(ar[date_ar].dt.to_period("M"))[val_ar].sum()
+    monthly = pd.DataFrame({"receber": monthly_ar, "pagar": monthly_ap}).fillna(0.0).sort_index()
+    monthly = monthly[(monthly["receber"] > 0) & (monthly["pagar"] > 0)]
+
+    if monthly.empty:
+        return None, "Série histórica insuficiente para projeção"
+
+    base_hist = monthly.tail(lookback_months)
+    avg_receber = float(base_hist["receber"].mean())
+    avg_pagar = float(base_hist["pagar"].mean())
+
+    days = pd.date_range(pd.Timestamp.today().normalize(), periods=horizon_days, freq="D")
+    daily_receber = avg_receber / 30.0
+    daily_pagar = avg_pagar / 30.0
+
+    proj = pd.DataFrame({
+        "data": days,
+        "receber_previsto": daily_receber,
+        "pagar_previsto": daily_pagar,
+    })
+    proj["fluxo_liquido"] = proj["receber_previsto"] - proj["pagar_previsto"]
+    proj["saldo_acumulado"] = proj["fluxo_liquido"].cumsum()
+
+    scenarios = {
+        "conservador": {"receber_mult": 0.85, "pagar_mult": 1.10},
+        "base": {"receber_mult": 1.00, "pagar_mult": 1.00},
+        "agressivo": {"receber_mult": 1.10, "pagar_mult": 0.95},
+    }
+
+    scenario_totals = {}
+    for name, m in scenarios.items():
+        r = daily_receber * m["receber_mult"] * horizon_days
+        p = daily_pagar * m["pagar_mult"] * horizon_days
+        scenario_totals[name] = {
+            "entradas_90d": round(r, 2),
+            "saidas_90d": round(p, 2),
+            "liquido_90d": round(r - p, 2),
+        }
+
+    payload = {
+        "generated_at": datetime.now().isoformat(),
+        "horizon_days": horizon_days,
+        "lookback_months": lookback_months,
+        "historical_months_used": len(base_hist),
+        "run_rate_mensal": {
+            "receber": round(avg_receber, 2),
+            "pagar": round(avg_pagar, 2),
+            "liquido": round(avg_receber - avg_pagar, 2),
+        },
+        "totais_base_90d": scenario_totals["base"],
+        "scenarios_90d": scenario_totals,
+        "projection_daily": [
+            {
+                "data": d["data"].strftime("%Y-%m-%d"),
+                "receber_previsto": round(float(d["receber_previsto"]), 2),
+                "pagar_previsto": round(float(d["pagar_previsto"]), 2),
+                "fluxo_liquido": round(float(d["fluxo_liquido"]), 2),
+                "saldo_acumulado": round(float(d["saldo_acumulado"]), 2),
+            }
+            for _, d in proj.iterrows()
+        ],
+    }
+
+    out = base / "outputs" / "cashflow_90d.json"
+    out.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+
+    return {"monthly": monthly, "projection": proj, "payload": payload, "output": out}, None
+
+
 projects = sorted([p.name for p in PROJECTS_DIR.iterdir() if p.is_dir()]) if PROJECTS_DIR.exists() else []
 if not projects:
     st.warning("Nenhum projeto encontrado")
@@ -167,8 +283,8 @@ m5.metric("Novos dados", "SIM" if processed > 0 else "NÃO", delta=processed if 
 m6.metric("Issues", summary.get("issues", 0))
 
 # ---------- MAIN TABS ----------
-cockpit, security, actions, control, technical = st.tabs(
-    ["Command Center", "AI Security", "Action Inbox", "Run Control", "Audit Timeline"]
+cockpit, cashflow, security, actions, control, technical = st.tabs(
+    ["Command Center", "Fluxo de Caixa 90D", "AI Security", "Action Inbox", "Run Control", "Audit Timeline"]
 )
 
 with cockpit:
@@ -192,6 +308,41 @@ with cockpit:
     if not risk_df.empty:
         cols = [c for c in ["kpi", "unidade", "score", "level", "llm_action_status"] if c in risk_df.columns]
         st.dataframe(risk_df[cols].head(10), use_container_width=True, hide_index=True)
+
+with cashflow:
+    st.subheader("Fluxo de Caixa Projetado — 90 dias")
+    cf_data, cf_error = build_cashflow_projection_90d(base=base, horizon_days=90, lookback_months=6)
+
+    if cf_error:
+        st.warning(cf_error)
+    else:
+        payload = cf_data["payload"]
+        proj = cf_data["projection"]
+
+        c1, c2, c3, c4 = st.columns(4)
+        c1.metric("Entradas 90D (base)", f"R$ {payload['totais_base_90d']['entradas_90d']:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
+        c2.metric("Saídas 90D (base)", f"R$ {payload['totais_base_90d']['saidas_90d']:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
+        c3.metric("Líquido 90D (base)", f"R$ {payload['totais_base_90d']['liquido_90d']:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
+        c4.metric("Run rate mensal líquido", f"R$ {payload['run_rate_mensal']['liquido']:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
+
+        st.caption("Projeção baseada nos últimos 6 meses válidos de Contas a Pagar e Contas a Receber.")
+
+        chart_df = proj[["data", "receber_previsto", "pagar_previsto", "saldo_acumulado"]].set_index("data")
+        st.line_chart(chart_df, color=["#34d399", "#ef4444", "#22d3ee"])
+
+        scen_df = pd.DataFrame(
+            [{"cenário": k.title(), **v} for k, v in payload["scenarios_90d"].items()]
+        )
+        st.dataframe(scen_df, use_container_width=True, hide_index=True)
+
+        csv_data = proj.to_csv(index=False).encode("utf-8")
+        st.download_button(
+            "Baixar projeção diária (CSV)",
+            data=csv_data,
+            file_name=f"cashflow-90d-{project_id}-{datetime.now().strftime('%Y%m%d-%H%M')}.csv",
+            mime="text/csv",
+        )
+        st.caption(f"JSON técnico atualizado em: {cf_data['output']}")
 
 with security:
     st.subheader("AI Risk Meter")
