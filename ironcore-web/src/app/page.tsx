@@ -2,18 +2,20 @@ import fs from "node:fs";
 import path from "node:path";
 
 type AnyObj = Record<string, unknown>;
+const num = (v: unknown) => Number(v ?? 0);
+const txt = (v: unknown) => String(v ?? "-");
 
-function loadJson(filePath: string, fallback: AnyObj = {}) {
+function loadJson<T = AnyObj>(filePath: string, fallback: T): T {
   try {
-    return JSON.parse(fs.readFileSync(filePath, "utf-8"));
+    return JSON.parse(fs.readFileSync(filePath, "utf-8")) as T;
   } catch {
     return fallback;
   }
 }
 
-function metricDelta(current: number, previous?: number) {
-  if (previous === undefined) return "-";
-  const d = current - previous;
+function metricDelta(current: number, previous?: unknown) {
+  if (previous === undefined || previous === null) return "-";
+  const d = current - num(previous);
   return d === 0 ? "0" : d > 0 ? `+${d}` : `${d}`;
 }
 
@@ -36,45 +38,47 @@ export default function Home() {
   const projectId = process.env.IRONCORE_PROJECT_ID || "teste";
   const base = path.join(process.cwd(), "..", "projects", projectId);
 
-  const comite = loadJson(path.join(base, "outputs", "comite.json"));
+  const comite = loadJson(path.join(base, "outputs", "comite.json"), {} as AnyObj);
   const sla = loadJson(path.join(base, "outputs", "sla_alerts.json"), { alerts: [] });
-  const cashflow = loadJson(path.join(base, "outputs", "cashflow_90d.json"), {});
-  const reconciliation = findLatestReconciliation(base);
+  const cashflow = loadJson(path.join(base, "outputs", "cashflow_90d.json"), {} as AnyObj);
+  const reconciliation = (findLatestReconciliation(base) || {}) as AnyObj;
 
-  const summary = comite.summary || {};
-  const clusters: AnyObj[] = comite.clusters || [];
-  const topRisks: AnyObj[] = comite.top_risks || [];
+  const summary = (comite.summary as AnyObj) || {};
+  const clusters: AnyObj[] = Array.isArray(comite.clusters) ? (comite.clusters as AnyObj[]) : [];
+  const topRisks: AnyObj[] = Array.isArray(comite.top_risks) ? (comite.top_risks as AnyObj[]) : [];
 
   const dailyDir = path.join(base, "history", "daily");
   let prevSummary: AnyObj | undefined = undefined;
   try {
     const files = fs.readdirSync(dailyDir).filter((f) => f.endsWith(".json")).sort();
     if (files.length >= 2) {
-      prevSummary = loadJson(path.join(dailyDir, files[files.length - 2])).summary;
+      const prev = loadJson(path.join(dailyDir, files[files.length - 2]), {} as AnyObj);
+      prevSummary = (prev.summary as AnyObj) || undefined;
     }
   } catch {
     // ignore
   }
 
   const trustScore = (sla.alerts || []).length === 0 ? 94 : Math.max(75, 94 - Math.min(20, sla.alerts.length * 3));
-  const risks = Number(summary.risks || 0);
-  const critical = Number(summary.critical_high || 0);
+  const risks = num(summary.risks);
+  const critical = num(summary.critical_high);
 
-  const sortedClusters = [...clusters].sort((a, b) => (b.critical_high || 0) - (a.critical_high || 0));
+  const sortedClusters = [...clusters].sort((a, b) => num(b.critical_high) - num(a.critical_high));
   const actionInbox = sortedClusters.slice(0, 5).map((c, i) => ({
     priority: i < 2 ? "P1" : "P2",
-    title: `Priorizar frente ${c.cluster}`,
-    detail: `Críticos/altos: ${c.critical_high} · Impacto: ${c.impacto_estimado_cluster ?? 0}`,
+    title: `Priorizar frente ${txt(c.cluster)}`,
+    detail: `Críticos/altos: ${num(c.critical_high)} · Impacto: ${num(c.impacto_estimado_cluster)}`,
   }));
 
-  const cfRupture = cashflow?.rupture?.has_rupture;
-  const cfRuptureDate = cashflow?.rupture?.first_date;
-  const cfDaysToRupture = cashflow?.rupture?.days_to_rupture;
-  const cfOpening = Number(cashflow?.opening_balance ?? 0);
-  const cfMin = Number(cashflow?.min_projected_balance ?? 0);
-  const cfEnding = Number(cashflow?.ending_projected_balance ?? 0);
+  const rupture = ((cashflow["rupture"] as AnyObj | undefined) || {}) as AnyObj;
+  const cfRupture = Boolean(rupture["has_rupture"]);
+  const cfRuptureDate = txt(rupture["first_date"]);
+  const cfDaysToRupture = num(rupture["days_to_rupture"]);
+  const cfOpening = num(cashflow["opening_balance"]);
+  const cfMin = num(cashflow["min_projected_balance"]);
+  const cfEnding = num(cashflow["ending_projected_balance"]);
 
-  const reconTotals = reconciliation?.totals || {};
+  const reconTotals = ((reconciliation["totals"] as AnyObj | undefined) || {}) as AnyObj;
   const expected = Math.max(1, Number(reconTotals.ap_expected_count || 0));
   const matched = Number(reconTotals.matched_count || 0);
   const apUnmatched = Number(reconTotals.ap_unmatched_count || 0);
@@ -98,8 +102,8 @@ export default function Home() {
           </div>
           <div className="flex gap-2 flex-wrap">
             <span className="pill">Projeto: {projectId}</span>
-            <span className="pill">Run: {summary.run_id ?? "-"}</span>
-            <span className="pill">Modo: {summary.analysis_mode ?? "-"}</span>
+            <span className="pill">Run: {txt(summary.run_id)}</span>
+            <span className="pill">Modo: {txt(summary.analysis_mode)}</span>
           </div>
         </div>
       </header>
@@ -113,8 +117,8 @@ export default function Home() {
         <Metric title="Riscos" value={risks} delta={metricDelta(risks, prevSummary?.risks)} />
         <Metric title="Críticos/Altos" value={critical} delta={metricDelta(critical, prevSummary?.critical_high)} />
         <Metric title="SLA Alerts" value={(sla.alerts || []).length} delta="-" />
-        <Metric title="Issues" value={summary.issues ?? 0} delta="-" />
-        <Metric title="Materialidade" value={summary.materiality_min_impact ?? 0} delta="-" />
+        <Metric title="Issues" value={num(summary.issues)} delta="-" />
+        <Metric title="Materialidade" value={num(summary.materiality_min_impact)} delta="-" />
       </section>
 
       <section className="grid lg:grid-cols-3 gap-4 mb-5">
@@ -124,10 +128,10 @@ export default function Home() {
             {sortedClusters.slice(0, 6).map((c, i) => (
               <div className="row" key={i}>
                 <div>
-                  <div className="font-medium">{c.cluster}</div>
-                  <div className="text-xs text-slate-400">Impacto: {c.impacto_estimado_cluster ?? 0}</div>
+                  <div className="font-medium">{txt(c.cluster)}</div>
+                  <div className="text-xs text-slate-400">Impacto: {num(c.impacto_estimado_cluster)}</div>
                 </div>
-                <span className="badge">{c.critical_high}</span>
+                <span className="badge">{num(c.critical_high)}</span>
               </div>
             ))}
           </div>
@@ -141,7 +145,7 @@ export default function Home() {
             ) : (
               <div className="alert bad-bg">{sla.alerts.length} alertas SLA ativos</div>
             )}
-            <div className="alert muted-bg">Novos dados: {Number(summary.processed || 0) > 0 ? "SIM" : "NÃO"}</div>
+            <div className="alert muted-bg">Novos dados: {num(summary.processed) > 0 ? "SIM" : "NÃO"}</div>
             <div className="alert muted-bg">View atual: Executive</div>
           </div>
         </div>
@@ -150,7 +154,7 @@ export default function Home() {
       <section className="grid lg:grid-cols-2 gap-4 mb-5">
         <div className="card">
           <h2 className="title">Fluxo de Caixa 90D</h2>
-          {cashflow?.generated_at ? (
+          {Boolean(cashflow["generated_at"]) ? (
             <div className="mt-3 space-y-2 text-sm">
               <div className="row"><span>Saldo inicial</span><b>{brl(cfOpening)}</b></div>
               <div className="row"><span>Menor saldo projetado</span><b>{brl(cfMin)}</b></div>
@@ -168,10 +172,10 @@ export default function Home() {
 
         <div className="card">
           <h2 className="title">Conciliação D-1</h2>
-          {reconciliation ? (
+          {Boolean(reconciliation["reconciled_day"] || reconciliation["totals"]) ? (
             <div className="mt-3 space-y-2 text-sm">
               <div className="row"><span>Status</span><b>{reconStatus}</b></div>
-              <div className="row"><span>Dia conciliado</span><b>{reconciliation.reconciled_day ?? "-"}</b></div>
+              <div className="row"><span>Dia conciliado</span><b>{txt(reconciliation["reconciled_day"])}</b></div>
               <div className="row"><span>% conciliado</span><b>{(matchRate * 100).toFixed(1)}%</b></div>
               <div className="row"><span>Pendências AP</span><b>{apUnmatched}</b></div>
               <div className="row"><span>Débitos sem par</span><b>{bankUnmatched}</b></div>
@@ -188,8 +192,8 @@ export default function Home() {
           <ul className="space-y-2 mt-3">
             {topRisks.slice(0, 8).map((r, i) => (
               <li key={i} className="row">
-                <span className="truncate pr-3">{r.kpi} · {r.unidade}</span>
-                <span className="badge">{r.score}</span>
+                <span className="truncate pr-3">{txt(r.kpi)} · {txt(r.unidade)}</span>
+                <span className="badge">{num(r.score)}</span>
               </li>
             ))}
           </ul>
