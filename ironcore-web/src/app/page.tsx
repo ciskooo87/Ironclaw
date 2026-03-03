@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 
-type AnyObj = Record<string, any>;
+type AnyObj = Record<string, unknown>;
 
 function loadJson(filePath: string, fallback: AnyObj = {}) {
   try {
@@ -17,12 +17,29 @@ function metricDelta(current: number, previous?: number) {
   return d === 0 ? "0" : d > 0 ? `+${d}` : `${d}`;
 }
 
+function findLatestReconciliation(base: string) {
+  try {
+    const outDir = path.join(base, "outputs");
+    const files = fs
+      .readdirSync(outDir)
+      .filter((f) => /^reconciliation_\d+\.json$/.test(f))
+      .sort();
+    if (!files.length) return null;
+    const file = files[files.length - 1];
+    return loadJson(path.join(outDir, file), null);
+  } catch {
+    return null;
+  }
+}
+
 export default function Home() {
-  const projectId = "teste";
+  const projectId = process.env.IRONCORE_PROJECT_ID || "teste";
   const base = path.join(process.cwd(), "..", "projects", projectId);
 
   const comite = loadJson(path.join(base, "outputs", "comite.json"));
   const sla = loadJson(path.join(base, "outputs", "sla_alerts.json"), { alerts: [] });
+  const cashflow = loadJson(path.join(base, "outputs", "cashflow_90d.json"), {});
+  const reconciliation = findLatestReconciliation(base);
 
   const summary = comite.summary || {};
   const clusters: AnyObj[] = comite.clusters || [];
@@ -49,6 +66,27 @@ export default function Home() {
     title: `Priorizar frente ${c.cluster}`,
     detail: `Críticos/altos: ${c.critical_high} · Impacto: ${c.impacto_estimado_cluster ?? 0}`,
   }));
+
+  const cfRupture = cashflow?.rupture?.has_rupture;
+  const cfRuptureDate = cashflow?.rupture?.first_date;
+  const cfDaysToRupture = cashflow?.rupture?.days_to_rupture;
+  const cfOpening = Number(cashflow?.opening_balance ?? 0);
+  const cfMin = Number(cashflow?.min_projected_balance ?? 0);
+  const cfEnding = Number(cashflow?.ending_projected_balance ?? 0);
+
+  const reconTotals = reconciliation?.totals || {};
+  const expected = Math.max(1, Number(reconTotals.ap_expected_count || 0));
+  const matched = Number(reconTotals.matched_count || 0);
+  const apUnmatched = Number(reconTotals.ap_unmatched_count || 0);
+  const bankUnmatched = Number(reconTotals.bank_unmatched_count || 0);
+  const matchRate = matched / expected;
+  const reconStatus = matchRate >= 0.95 && apUnmatched === 0 && bankUnmatched <= 1
+    ? "VERDE"
+    : matchRate >= 0.8 && apUnmatched <= 3
+      ? "AMARELO"
+      : "VERMELHO";
+
+  const brl = (n: number) => n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
   return (
     <main className="min-h-screen p-6 md:p-8">
@@ -106,6 +144,41 @@ export default function Home() {
             <div className="alert muted-bg">Novos dados: {Number(summary.processed || 0) > 0 ? "SIM" : "NÃO"}</div>
             <div className="alert muted-bg">View atual: Executive</div>
           </div>
+        </div>
+      </section>
+
+      <section className="grid lg:grid-cols-2 gap-4 mb-5">
+        <div className="card">
+          <h2 className="title">Fluxo de Caixa 90D</h2>
+          {cashflow?.generated_at ? (
+            <div className="mt-3 space-y-2 text-sm">
+              <div className="row"><span>Saldo inicial</span><b>{brl(cfOpening)}</b></div>
+              <div className="row"><span>Menor saldo projetado</span><b>{brl(cfMin)}</b></div>
+              <div className="row"><span>Saldo final projetado</span><b>{brl(cfEnding)}</b></div>
+              {cfRupture ? (
+                <div className="alert bad-bg">🚨 Ruptura prevista em {cfRuptureDate} (D+{cfDaysToRupture})</div>
+              ) : (
+                <div className="alert ok-bg">✅ Sem ruptura no horizonte de 90 dias</div>
+              )}
+            </div>
+          ) : (
+            <div className="alert muted-bg mt-3">cashflow_90d.json ainda não gerado para este projeto.</div>
+          )}
+        </div>
+
+        <div className="card">
+          <h2 className="title">Conciliação D-1</h2>
+          {reconciliation ? (
+            <div className="mt-3 space-y-2 text-sm">
+              <div className="row"><span>Status</span><b>{reconStatus}</b></div>
+              <div className="row"><span>Dia conciliado</span><b>{reconciliation.reconciled_day ?? "-"}</b></div>
+              <div className="row"><span>% conciliado</span><b>{(matchRate * 100).toFixed(1)}%</b></div>
+              <div className="row"><span>Pendências AP</span><b>{apUnmatched}</b></div>
+              <div className="row"><span>Débitos sem par</span><b>{bankUnmatched}</b></div>
+            </div>
+          ) : (
+            <div className="alert muted-bg mt-3">Nenhum arquivo reconciliation_*.json encontrado.</div>
+          )}
         </div>
       </section>
 
