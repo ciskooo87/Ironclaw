@@ -45,6 +45,16 @@ python3 ironcore_mvp.py --project projeto-alpha --analysis-mode since_last
 # opções: since_last | daily | full
 ```
 
+Conciliação bancária D-1 (extrato x contas a pagar detalhado):
+```bash
+python3 ironcore_mvp.py \
+  --project projeto-alpha \
+  --reconcile-bank \
+  --statement-file ./projects/projeto-alpha/sources/extrato_bancario.csv \
+  --payable-file ./projects/projeto-alpha/sources/contas_pagar_detalhado.csv
+```
+Opcional: `--reference-date YYYY-MM-DD` (concilia dia anterior dessa data)
+
 Automação diária por projeto (script):
 ```bash
 ./scripts/run_project_daily.sh projeto-alpha

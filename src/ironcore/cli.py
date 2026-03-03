@@ -1,9 +1,11 @@
 import argparse
+import datetime as dt
 from pathlib import Path
 
 from .pipeline import run_pipeline
 from .projects import get_project, project_dirs, register_project
 from .config import load_rules_with_meta, validate_rules
+from .reconciliation import reconcile_previous_day
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -30,6 +32,13 @@ def main() -> None:
     parser.add_argument("--llm-model", type=str, default="deepseek-chat")
     parser.add_argument("--llm-max-items", type=int, default=10)
     parser.add_argument("--analysis-mode", choices=["since_last", "daily", "full"], default="since_last")
+
+    # Reconciliação bancária (novo módulo)
+    parser.add_argument("--reconcile-bank", action="store_true", help="Executa conciliação do dia anterior (extrato x contas a pagar)")
+    parser.add_argument("--statement-file", type=Path, default=None, help="Arquivo de extrato bancário (.csv/.xlsx)")
+    parser.add_argument("--payable-file", type=Path, default=None, help="Arquivo detalhado de contas a pagar (.csv/.xlsx)")
+    parser.add_argument("--reference-date", type=str, default=None, help="Data de referência YYYY-MM-DD (concilia D-1)")
+    parser.add_argument("--reconcile-tolerance", type=float, default=0.01, help="Tolerância de valor na conciliação")
     args = parser.parse_args()
 
     if args.register_project:
@@ -47,6 +56,31 @@ def main() -> None:
         raise SystemExit(2)
 
     dirs = project_dirs(ROOT, args.project)
+
+    if args.reconcile_bank:
+        statement_file = args.statement_file or (dirs['sources'] / 'extrato_bancario.csv')
+        payable_file = args.payable_file or (dirs['sources'] / 'contas_pagar_detalhado.csv')
+        if not statement_file.exists():
+            print(f"Erro: extrato não encontrado em {statement_file}")
+            raise SystemExit(2)
+        if not payable_file.exists():
+            print(f"Erro: contas a pagar detalhado não encontrado em {payable_file}")
+            raise SystemExit(2)
+
+        ref_date = dt.date.fromisoformat(args.reference_date) if args.reference_date else dt.date.today()
+        result = reconcile_previous_day(
+            project_base=dirs['base'],
+            statement_path=statement_file,
+            payable_path=payable_file,
+            reference_date=ref_date,
+            tolerance=args.reconcile_tolerance,
+        )
+        print("Conciliação executada com sucesso")
+        print(f"Output: {result['output']}")
+        print(f"Resumo: {result['summary']}")
+        if result['closing_balance_applied'] is not None:
+            print(f"Saldo apropriado no cashflow_settings: {result['closing_balance_applied']}")
+        raise SystemExit(0)
 
     if args.validate_rules:
         rules, meta = load_rules_with_meta(dirs['config'])
