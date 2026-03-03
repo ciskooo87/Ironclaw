@@ -403,8 +403,39 @@ with reconciliation:
     st.subheader("Conciliação Bancária D-1")
     st.caption("Concilia pagamentos do dia anterior (extrato bancário x contas a pagar detalhado) e apropria saldo no fluxo de caixa.")
 
-    statement_default = base / "sources" / "extrato_bancario.csv"
-    payable_default = base / "sources" / "contas_pagar_detalhado.csv"
+    source_dir = base / "sources"
+    source_dir.mkdir(parents=True, exist_ok=True)
+
+    statement_candidates = sorted(source_dir.glob("extrato_bancario.*"))
+    payable_candidates = sorted(source_dir.glob("contas_pagar_detalhado.*"))
+    statement_default = statement_candidates[-1] if statement_candidates else (source_dir / "extrato_bancario.csv")
+    payable_default = payable_candidates[-1] if payable_candidates else (source_dir / "contas_pagar_detalhado.csv")
+
+    st.markdown("**Carga de arquivos (extratos e contas a pagar)**")
+    up1, up2 = st.columns(2)
+    with up1:
+        statement_upload = st.file_uploader(
+            "Upload extrato bancário (.csv/.xlsx)",
+            type=["csv", "xlsx", "xls", "xlsm"],
+            key=f"statement_upload_{project_id}",
+        )
+        if statement_upload is not None:
+            target = source_dir / f"extrato_bancario{Path(statement_upload.name).suffix.lower()}"
+            target.write_bytes(statement_upload.getbuffer())
+            st.success(f"Extrato carregado: {target.name}")
+            statement_default = target
+
+    with up2:
+        payable_upload = st.file_uploader(
+            "Upload contas a pagar detalhado (.csv/.xlsx)",
+            type=["csv", "xlsx", "xls", "xlsm"],
+            key=f"payable_upload_{project_id}",
+        )
+        if payable_upload is not None:
+            target = source_dir / f"contas_pagar_detalhado{Path(payable_upload.name).suffix.lower()}"
+            target.write_bytes(payable_upload.getbuffer())
+            st.success(f"Contas a pagar carregado: {target.name}")
+            payable_default = target
 
     rc1, rc2 = st.columns(2)
     with rc1:
