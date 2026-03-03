@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import glob
 import json
 import random
 import subprocess
@@ -305,8 +306,8 @@ m5.metric("Novos dados", "SIM" if processed > 0 else "NÃO", delta=processed if 
 m6.metric("Issues", summary.get("issues", 0))
 
 # ---------- MAIN TABS ----------
-cockpit, cashflow, security, actions, control, technical = st.tabs(
-    ["Command Center", "Fluxo de Caixa 90D", "AI Security", "Action Inbox", "Run Control", "Audit Timeline"]
+cockpit, cashflow, reconciliation, security, actions, control, technical = st.tabs(
+    ["Command Center", "Fluxo de Caixa 90D", "Conciliação D-1", "AI Security", "Action Inbox", "Run Control", "Audit Timeline"]
 )
 
 with cockpit:
@@ -397,6 +398,90 @@ with cashflow:
             mime="text/csv",
         )
         st.caption(f"JSON técnico atualizado em: {cf_data['output']}")
+
+with reconciliation:
+    st.subheader("Conciliação Bancária D-1")
+    st.caption("Concilia pagamentos do dia anterior (extrato bancário x contas a pagar detalhado) e apropria saldo no fluxo de caixa.")
+
+    statement_default = base / "sources" / "extrato_bancario.csv"
+    payable_default = base / "sources" / "contas_pagar_detalhado.csv"
+
+    rc1, rc2 = st.columns(2)
+    with rc1:
+        statement_path = st.text_input("Arquivo de extrato", value=str(statement_default))
+    with rc2:
+        payable_path = st.text_input("Arquivo de contas a pagar detalhado", value=str(payable_default))
+
+    rc3, rc4, rc5 = st.columns(3)
+    with rc3:
+        ref_date = st.date_input("Data de referência", value=datetime.now().date())
+    with rc4:
+        tolerance = st.number_input("Tolerância (R$)", min_value=0.0, value=0.01, step=0.01, format="%.2f")
+    with rc5:
+        st.write("")
+        st.write("")
+        run_reconciliation = st.button("Executar conciliação D-1", type="primary")
+
+    if run_reconciliation:
+        cmd = [
+            str(PYTHON_BIN), str(RUNNER),
+            "--project", project_id,
+            "--reconcile-bank",
+            "--statement-file", statement_path,
+            "--payable-file", payable_path,
+            "--reference-date", ref_date.isoformat(),
+            "--reconcile-tolerance", str(float(tolerance)),
+        ]
+        with st.spinner("Executando conciliação..."):
+            proc = subprocess.run(cmd, cwd=str(ROOT), capture_output=True, text=True)
+        if proc.returncode == 0:
+            st.success("Conciliação executada com sucesso.")
+            st.code(proc.stdout)
+        else:
+            st.error(f"Falha na conciliação (código {proc.returncode})")
+            st.code((proc.stdout or "") + "\n" + (proc.stderr or ""))
+
+    recon_files = sorted(glob.glob(str(base / "outputs" / "reconciliation_*.json")))
+    if recon_files:
+        latest_file = Path(recon_files[-1])
+        recon = load_json(latest_file, {})
+        totals = recon.get("totals", {})
+
+        m1, m2, m3, m4, m5 = st.columns(5)
+        m1.metric("Previstos AP", totals.get("ap_expected_count", 0))
+        m2.metric("Pagamentos no banco", totals.get("bank_payments_count", 0))
+        m3.metric("Conciliados", totals.get("matched_count", 0))
+        m4.metric("Pendentes no AP", totals.get("ap_unmatched_count", 0))
+        m5.metric("Débitos sem par", totals.get("bank_unmatched_count", 0))
+
+        st.caption(f"Último arquivo: {latest_file.name} | Dia conciliado: {recon.get('reconciled_day', '-')}")
+        st.caption(f"Saldo apropriado no cashflow: {recon.get('closing_balance', 'n/d')}")
+
+        ap_unmatched = pd.DataFrame(recon.get("ap_unmatched", []))
+        bank_unmatched = pd.DataFrame(recon.get("bank_unmatched", []))
+
+        c1, c2 = st.columns(2)
+        with c1:
+            st.markdown("**Pendências AP (sem baixa no banco)**")
+            if ap_unmatched.empty:
+                st.success("Sem pendências AP")
+            else:
+                st.dataframe(ap_unmatched.head(100), use_container_width=True, hide_index=True)
+        with c2:
+            st.markdown("**Débitos no banco sem par no AP**")
+            if bank_unmatched.empty:
+                st.success("Sem débitos órfãos")
+            else:
+                st.dataframe(bank_unmatched.head(100), use_container_width=True, hide_index=True)
+
+        st.download_button(
+            "Baixar JSON da última conciliação",
+            data=latest_file.read_text(encoding="utf-8"),
+            file_name=latest_file.name,
+            mime="application/json",
+        )
+    else:
+        st.info("Nenhuma conciliação encontrada ainda. Execute a primeira com os arquivos de entrada.")
 
 with security:
     st.subheader("AI Risk Meter")
