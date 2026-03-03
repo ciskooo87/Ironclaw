@@ -5,6 +5,7 @@ import random
 import subprocess
 from datetime import datetime
 from pathlib import Path
+from typing import Any
 
 import pandas as pd
 import streamlit as st
@@ -44,6 +45,27 @@ def load_json(path: Path, default):
     if not path.exists():
         return default
     return json.loads(path.read_text(encoding="utf-8"))
+
+
+def append_upload_history(base: Path, row: dict[str, Any]) -> None:
+    f = base / "logs" / "upload_history.jsonl"
+    f.parent.mkdir(parents=True, exist_ok=True)
+    with f.open("a", encoding="utf-8") as fp:
+        fp.write(json.dumps(row, ensure_ascii=False) + "\n")
+
+
+def read_upload_history(base: Path, limit: int = 50) -> list[dict[str, Any]]:
+    f = base / "logs" / "upload_history.jsonl"
+    if not f.exists():
+        return []
+    lines = f.read_text(encoding="utf-8").splitlines()
+    out = []
+    for ln in lines[-limit:]:
+        try:
+            out.append(json.loads(ln))
+        except Exception:
+            continue
+    return list(reversed(out))
 
 
 def previous_daily_summary(base: Path):
@@ -421,7 +443,19 @@ with reconciliation:
         )
         if statement_upload is not None:
             target = source_dir / f"extrato_bancario{Path(statement_upload.name).suffix.lower()}"
-            target.write_bytes(statement_upload.getbuffer())
+            data = statement_upload.getbuffer()
+            target.write_bytes(data)
+            append_upload_history(
+                base,
+                {
+                    "timestamp": datetime.now().isoformat(),
+                    "project": project_id,
+                    "tipo": "extrato_bancario",
+                    "arquivo_original": statement_upload.name,
+                    "arquivo_salvo": str(target),
+                    "tamanho_bytes": int(len(data)),
+                },
+            )
             st.success(f"Extrato carregado: {target.name}")
             statement_default = target
 
@@ -433,7 +467,19 @@ with reconciliation:
         )
         if payable_upload is not None:
             target = source_dir / f"contas_pagar_detalhado{Path(payable_upload.name).suffix.lower()}"
-            target.write_bytes(payable_upload.getbuffer())
+            data = payable_upload.getbuffer()
+            target.write_bytes(data)
+            append_upload_history(
+                base,
+                {
+                    "timestamp": datetime.now().isoformat(),
+                    "project": project_id,
+                    "tipo": "contas_pagar_detalhado",
+                    "arquivo_original": payable_upload.name,
+                    "arquivo_salvo": str(target),
+                    "tamanho_bytes": int(len(data)),
+                },
+            )
             st.success(f"Contas a pagar carregado: {target.name}")
             payable_default = target
 
@@ -442,6 +488,15 @@ with reconciliation:
         statement_path = st.text_input("Arquivo de extrato", value=str(statement_default))
     with rc2:
         payable_path = st.text_input("Arquivo de contas a pagar detalhado", value=str(payable_default))
+
+    history = read_upload_history(base, limit=30)
+    if history:
+        st.markdown("**Histórico de uploads**")
+        hdf = pd.DataFrame(history)
+        if "tamanho_bytes" in hdf.columns:
+            hdf["tamanho_kb"] = (hdf["tamanho_bytes"] / 1024).round(1)
+        cols = [c for c in ["timestamp", "tipo", "arquivo_original", "arquivo_salvo", "tamanho_kb"] if c in hdf.columns]
+        st.dataframe(hdf[cols], use_container_width=True, hide_index=True)
 
     rc3, rc4, rc5 = st.columns(3)
     with rc3:
