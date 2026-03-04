@@ -1,6 +1,7 @@
 import { AppShell } from "@/components/AppShell";
 import { requireUser } from "@/lib/guards";
 import { getProjectByCode } from "@/lib/projects";
+import { canAccessProject } from "@/lib/permissions";
 
 export default async function Page({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ saved?: string; error?: string }> }) {
   const user = await requireUser();
@@ -8,11 +9,15 @@ export default async function Page({ params, searchParams }: { params: Promise<{
   const project = await getProjectByCode(id);
   const query = await searchParams;
 
+  const allowed = project ? await canAccessProject(user, project.id) : false;
+
   return (
     <AppShell user={user} title="Projeto · Cadastro" subtitle="Dados-base e governança do projeto">
       <section className="card">
         {!project ? (
           <div className="alert bad-bg">Projeto não encontrado no banco. Crie em /projetos.</div>
+        ) : !allowed ? (
+          <div className="alert bad-bg">Sem permissão para este projeto.</div>
         ) : (
           <form action={`/api/projects/${id}/update`} method="post" className="grid md:grid-cols-2 gap-2 text-sm">
             <label className="space-y-1"><span className="text-slate-400">Nome</span><input name="name" defaultValue={project.name} required className="w-full bg-slate-950/40 border border-slate-700 rounded-lg px-3 py-2" /></label>

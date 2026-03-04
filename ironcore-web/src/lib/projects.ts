@@ -20,6 +20,19 @@ export async function listProjects() {
   }
 }
 
+export async function listProjectsForUser(email: string, role: string) {
+  if (role === "admin_master" || role === "diretoria") return listProjects();
+  try {
+    const q = await dbQuery<Project>(
+      "select p.id, p.code, p.name, p.cnpj, p.legal_name, p.partners, p.segment, p.timezone from projects p join project_permissions pp on pp.project_id = p.id join users u on u.id = pp.user_id where u.email = $1 order by p.created_at desc",
+      [email.toLowerCase()]
+    );
+    return q.rows;
+  } catch {
+    return [] as Project[];
+  }
+}
+
 export async function getProjectByCode(code: string) {
   try {
     const q = await dbQuery<Project>("select id, code, name, cnpj, legal_name, partners, segment, timezone from projects where code = $1", [code]);
