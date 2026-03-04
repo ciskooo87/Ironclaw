@@ -34,7 +34,7 @@ export default async function Page({ params, searchParams }: { params: Promise<{
     <AppShell user={user} title="Projeto · Painel Diário" subtitle="Entrada manual/upload com limite de edição retroativa de 5 dias">
       <section className="card mb-4">
         <h2 className="title">Lançar movimento diário</h2>
-        <form action={`/api/projects/${id}/daily/create`} method="post" className="mt-3 grid md:grid-cols-3 gap-2 text-sm">
+        <form action={`/api/projects/${id}/daily/create`} method="post" encType="multipart/form-data" className="mt-3 grid md:grid-cols-3 gap-2 text-sm">
           <input name="business_date" type="date" defaultValue={todayInSaoPauloISO()} required className="bg-slate-950/40 border border-slate-700 rounded-lg px-3 py-2" />
           <select name="source_type" className="bg-slate-950/40 border border-slate-700 rounded-lg px-3 py-2">
             <option value="manual">manual</option>
@@ -45,7 +45,8 @@ export default async function Page({ params, searchParams }: { params: Promise<{
           <input name="contas_pagar" type="number" step="0.01" placeholder="contas a pagar" className="bg-slate-950/40 border border-slate-700 rounded-lg px-3 py-2" />
           <input name="extrato_bancario" type="number" step="0.01" placeholder="extrato bancário" className="bg-slate-950/40 border border-slate-700 rounded-lg px-3 py-2" />
           <input name="duplicatas" type="number" step="0.01" placeholder="duplicatas" className="bg-slate-950/40 border border-slate-700 rounded-lg px-3 py-2" />
-          <input name="notes" placeholder="observações" className="md:col-span-2 bg-slate-950/40 border border-slate-700 rounded-lg px-3 py-2" />
+          <input name="notes" placeholder="observações" className="bg-slate-950/40 border border-slate-700 rounded-lg px-3 py-2" />
+          <input name="file" type="file" accept=".csv,.xlsx,.xls" className="md:col-span-2 bg-slate-950/40 border border-slate-700 rounded-lg px-3 py-2" />
           <button type="submit" className="badge py-2 cursor-pointer">Salvar dia</button>
         </form>
 
@@ -57,14 +58,25 @@ export default async function Page({ params, searchParams }: { params: Promise<{
         <h2 className="title">Últimos lançamentos</h2>
         <div className="mt-3 space-y-2 text-sm">
           {entries.length === 0 ? <div className="alert muted-bg">Sem lançamentos ainda.</div> : null}
-          {entries.map((e) => (
-            <div key={e.id} className="row !items-start">
-              <div>
-                <div className="font-medium">{e.business_date} · {e.source_type}</div>
-                <div className="text-xs text-slate-400">{JSON.stringify(e.payload)}</div>
-              </div>
-            </div>
-          ))}
+          {entries.map((e) => {
+            const p = e.payload as Record<string, unknown>;
+            return (
+              <form key={e.id} action={`/api/projects/${id}/daily/${e.id}/update`} method="post" className="card !p-3">
+                <div className="text-xs text-slate-400 mb-2">{e.business_date} · {e.source_type}</div>
+                <div className="grid md:grid-cols-3 gap-2">
+                  <input name="faturamento" type="number" step="0.01" defaultValue={Number(p.faturamento || 0)} className="bg-slate-950/40 border border-slate-700 rounded-lg px-3 py-2" />
+                  <input name="contas_receber" type="number" step="0.01" defaultValue={Number(p.contas_receber || 0)} className="bg-slate-950/40 border border-slate-700 rounded-lg px-3 py-2" />
+                  <input name="contas_pagar" type="number" step="0.01" defaultValue={Number(p.contas_pagar || 0)} className="bg-slate-950/40 border border-slate-700 rounded-lg px-3 py-2" />
+                  <input name="extrato_bancario" type="number" step="0.01" defaultValue={Number(p.extrato_bancario || 0)} className="bg-slate-950/40 border border-slate-700 rounded-lg px-3 py-2" />
+                  <input name="duplicatas" type="number" step="0.01" defaultValue={Number(p.duplicatas || 0)} className="bg-slate-950/40 border border-slate-700 rounded-lg px-3 py-2" />
+                  <input name="notes" defaultValue={String(p.notes || "")} className="bg-slate-950/40 border border-slate-700 rounded-lg px-3 py-2" />
+                </div>
+                <div className="mt-2">
+                  <button className="pill" type="submit">Atualizar lançamento</button>
+                </div>
+              </form>
+            );
+          })}
         </div>
       </section>
     </AppShell>

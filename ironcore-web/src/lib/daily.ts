@@ -7,12 +7,13 @@ export type DailyEntry = {
   source_type: "manual" | "upload";
   payload: Record<string, unknown>;
   created_at: string;
+  updated_at?: string;
 };
 
 export async function listDailyEntries(projectId: string, limit = 20) {
   try {
     const q = await dbQuery<DailyEntry>(
-      "select id, project_id, business_date::text, source_type, payload, created_at::text from daily_entries where project_id = $1 order by business_date desc, created_at desc limit $2",
+      "select id, project_id, business_date::text, source_type, payload, created_at::text, updated_at::text from daily_entries where project_id = $1 order by business_date desc, created_at desc limit $2",
       [projectId, limit]
     );
     return q.rows;
@@ -33,4 +34,16 @@ export async function insertDailyEntry(input: {
     [input.projectId, input.businessDate, input.sourceType, JSON.stringify(input.payload), input.createdBy]
   );
   return q.rows[0]?.id;
+}
+
+export async function getDailyEntryById(id: string) {
+  const q = await dbQuery<DailyEntry>(
+    "select id, project_id, business_date::text, source_type, payload, created_at::text, updated_at::text from daily_entries where id = $1",
+    [id]
+  );
+  return q.rows[0] || null;
+}
+
+export async function updateDailyEntryById(id: string, payload: Record<string, unknown>) {
+  await dbQuery("update daily_entries set payload = $2::jsonb, updated_at = now() where id = $1", [id, JSON.stringify(payload)]);
 }
