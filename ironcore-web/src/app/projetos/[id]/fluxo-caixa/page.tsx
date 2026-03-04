@@ -3,7 +3,7 @@ import { requireUser } from "@/lib/guards";
 import { getProjectByCode } from "@/lib/projects";
 import { canAccessProject } from "@/lib/permissions";
 import { todayInSaoPauloISO } from "@/lib/time";
-import { getCashflowProjection90d, getTodayMovement } from "@/lib/cashflow";
+import { getCashflowProjection90d, getOperationalMovementRows, getTodayMovement } from "@/lib/cashflow";
 
 function brl(v: number) {
   return v.toLocaleString("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 2 });
@@ -27,6 +27,9 @@ export default async function Page({ params, searchParams }: { params: Promise<{
   const move = await getTodayMovement(project.id, today);
   const proj = await getCashflowProjection90d(project.id, today);
   const selected = proj.scenarios[scenario];
+  const opRows = await getOperationalMovementRows(project.id, today);
+  const totalEntradas = opRows.filter((r) => r.movimentacao.includes("ENTRADA")).reduce((s, r) => s + r.valor, 0);
+  const totalSaidas = opRows.filter((r) => r.movimentacao.includes("SAÍDA")).reduce((s, r) => s + r.valor, 0);
 
   return (
     <AppShell user={user} title="Projeto · Fluxo de Caixa" subtitle="Movimento do dia + projeção padrão de 90 dias">
@@ -90,95 +93,38 @@ export default async function Page({ params, searchParams }: { params: Promise<{
               </tr>
             </thead>
             <tbody>
-              <tr className="odd:bg-slate-900/30">
-                <td className="px-2 py-1.5 border-b border-slate-900">01. OPERACIONAL</td>
-                <td className="px-2 py-1.5 border-b border-slate-900">01. ENTRADA</td>
-                <td className="px-2 py-1.5 border-b border-slate-900">01. RECEITA DE VENDAS</td>
-                <td className="px-2 py-1.5 border-b border-slate-900">01.01. RECEITA DE VENDAS</td>
-                <td className="px-2 py-1.5 border-b border-slate-900">RECEITA DE VENDAS</td>
-                <td className="px-2 py-1.5 border-b border-slate-900">OUTRAS ENTRADAS</td>
-                <td className="px-2 py-1.5 border-b border-slate-900 text-right">{brl(move.faturamento || 0)}</td>
-              </tr>
+              {opRows.length === 0 ? (
+                <tr>
+                  <td className="px-2 py-2 border-b border-slate-900 text-center text-slate-400" colSpan={7}>Sem lançamentos diários para {today}</td>
+                </tr>
+              ) : (
+                opRows.map((r, i) => (
+                  <tr key={`${r.classificacao}-${i}`} className="odd:bg-slate-900/30">
+                    <td className="px-2 py-1.5 border-b border-slate-900">{r.fluxo}</td>
+                    <td className="px-2 py-1.5 border-b border-slate-900">{r.movimentacao}</td>
+                    <td className="px-2 py-1.5 border-b border-slate-900">{r.classificacao}</td>
+                    <td className="px-2 py-1.5 border-b border-slate-900">{r.subclassificacao}</td>
+                    <td className="px-2 py-1.5 border-b border-slate-900">{r.natureza}</td>
+                    <td className="px-2 py-1.5 border-b border-slate-900">{r.lancamento}</td>
+                    <td className="px-2 py-1.5 border-b border-slate-900 text-right">{brl(r.valor)}</td>
+                  </tr>
+                ))
+              )}
 
               <tr className="bg-slate-900/40 font-semibold">
-                <td className="px-2 py-1.5 border-b border-slate-900">01. OPERACIONAL</td>
-                <td className="px-2 py-1.5 border-b border-slate-900">01. ENTRADA</td>
-                <td className="px-2 py-1.5 border-b border-slate-900">Total</td>
-                <td className="px-2 py-1.5 border-b border-slate-900">-</td>
-                <td className="px-2 py-1.5 border-b border-slate-900">-</td>
-                <td className="px-2 py-1.5 border-b border-slate-900">-</td>
-                <td className="px-2 py-1.5 border-b border-slate-900 text-right">{brl((move.contas_receber || 0) + (move.duplicatas || 0))}</td>
-              </tr>
-
-              <tr className="odd:bg-slate-900/30">
-                <td className="px-2 py-1.5 border-b border-slate-900">01. OPERACIONAL</td>
-                <td className="px-2 py-1.5 border-b border-slate-900">02. SAÍDA</td>
-                <td className="px-2 py-1.5 border-b border-slate-900">04. DESPESAS OPERACIONAIS</td>
-                <td className="px-2 py-1.5 border-b border-slate-900">04.22. COMBUSTÍVEIS</td>
-                <td className="px-2 py-1.5 border-b border-slate-900">COMBUSTÍVEIS</td>
-                <td className="px-2 py-1.5 border-b border-slate-900">PAGAMENTO</td>
-                <td className="px-2 py-1.5 border-b border-slate-900 text-right">{brl((move.contas_pagar || 0) * 0.3)}</td>
-              </tr>
-              <tr className="odd:bg-slate-900/30">
-                <td className="px-2 py-1.5 border-b border-slate-900">01. OPERACIONAL</td>
-                <td className="px-2 py-1.5 border-b border-slate-900">02. SAÍDA</td>
-                <td className="px-2 py-1.5 border-b border-slate-900">04. DESPESAS OPERACIONAIS</td>
-                <td className="px-2 py-1.5 border-b border-slate-900">04.24. TAXAS E PEDÁGIOS</td>
-                <td className="px-2 py-1.5 border-b border-slate-900">TAXAS E PEDÁGIOS</td>
-                <td className="px-2 py-1.5 border-b border-slate-900">SEM PARAR</td>
-                <td className="px-2 py-1.5 border-b border-slate-900 text-right">{brl((move.contas_pagar || 0) * 0.15)}</td>
-              </tr>
-              <tr className="odd:bg-slate-900/30">
-                <td className="px-2 py-1.5 border-b border-slate-900">01. OPERACIONAL</td>
-                <td className="px-2 py-1.5 border-b border-slate-900">02. SAÍDA</td>
-                <td className="px-2 py-1.5 border-b border-slate-900">04. DESPESAS OPERACIONAIS</td>
-                <td className="px-2 py-1.5 border-b border-slate-900">04.84. DESPESAS GERAIS</td>
-                <td className="px-2 py-1.5 border-b border-slate-900">DESPESAS GERAIS</td>
-                <td className="px-2 py-1.5 border-b border-slate-900">PAGAMENTO</td>
-                <td className="px-2 py-1.5 border-b border-slate-900 text-right">{brl((move.contas_pagar || 0) * 0.55)}</td>
+                <td className="px-2 py-1.5 border-b border-slate-900">TOTAL ENTRADAS</td>
+                <td className="px-2 py-1.5 border-b border-slate-900" colSpan={5}>Consolidado automático dos relatórios diários</td>
+                <td className="px-2 py-1.5 border-b border-slate-900 text-right">{brl(totalEntradas)}</td>
               </tr>
               <tr className="bg-slate-900/40 font-semibold">
-                <td className="px-2 py-1.5 border-b border-slate-900">01. OPERACIONAL</td>
-                <td className="px-2 py-1.5 border-b border-slate-900">02. SAÍDA</td>
-                <td className="px-2 py-1.5 border-b border-slate-900">Total</td>
-                <td className="px-2 py-1.5 border-b border-slate-900">-</td>
-                <td className="px-2 py-1.5 border-b border-slate-900">-</td>
-                <td className="px-2 py-1.5 border-b border-slate-900">-</td>
-                <td className="px-2 py-1.5 border-b border-slate-900 text-right">{brl(move.contas_pagar || 0)}</td>
+                <td className="px-2 py-1.5 border-b border-slate-900">TOTAL SAÍDAS</td>
+                <td className="px-2 py-1.5 border-b border-slate-900" colSpan={5}>Consolidado automático dos relatórios diários</td>
+                <td className="px-2 py-1.5 border-b border-slate-900 text-right">{brl(totalSaidas)}</td>
               </tr>
-
-              <tr className="odd:bg-slate-900/30">
-                <td className="px-2 py-1.5 border-b border-slate-900">03. FINANCIAMENTO</td>
-                <td className="px-2 py-1.5 border-b border-slate-900">02. SAÍDA</td>
-                <td className="px-2 py-1.5 border-b border-slate-900">05. DESPESAS FINANCEIRAS</td>
-                <td className="px-2 py-1.5 border-b border-slate-900">05.06. JUROS DE MÚTUO</td>
-                <td className="px-2 py-1.5 border-b border-slate-900">JUROS DE MÚTUO</td>
-                <td className="px-2 py-1.5 border-b border-slate-900">DIGIO</td>
-                <td className="px-2 py-1.5 border-b border-slate-900 text-right">{brl((move.net_ops || 0) * 0.15)}</td>
-              </tr>
-              <tr className="odd:bg-slate-900/30">
-                <td className="px-2 py-1.5 border-b border-slate-900">03. FINANCIAMENTO</td>
-                <td className="px-2 py-1.5 border-b border-slate-900">02. SAÍDA</td>
-                <td className="px-2 py-1.5 border-b border-slate-900">05. DESPESAS FINANCEIRAS</td>
-                <td className="px-2 py-1.5 border-b border-slate-900">05.15. REPASSE</td>
-                <td className="px-2 py-1.5 border-b border-slate-900">REPASSE</td>
-                <td className="px-2 py-1.5 border-b border-slate-900">REPASSE</td>
-                <td className="px-2 py-1.5 border-b border-slate-900 text-right">{brl((move.net_ops || 0) * 0.85)}</td>
-              </tr>
-              <tr className="bg-slate-900/40 font-semibold">
-                <td className="px-2 py-1.5 border-b border-slate-900">03. FINANCIAMENTO</td>
-                <td className="px-2 py-1.5 border-b border-slate-900">02. SAÍDA</td>
-                <td className="px-2 py-1.5 border-b border-slate-900">Total</td>
-                <td className="px-2 py-1.5 border-b border-slate-900">-</td>
-                <td className="px-2 py-1.5 border-b border-slate-900">-</td>
-                <td className="px-2 py-1.5 border-b border-slate-900">-</td>
-                <td className="px-2 py-1.5 border-b border-slate-900 text-right">{brl(move.net_ops || 0)}</td>
-              </tr>
-
               <tr className="bg-slate-800/60 font-semibold">
-                <td className="px-2 py-1.5 border-b border-slate-900">Total geral</td>
-                <td className="px-2 py-1.5 border-b border-slate-900" colSpan={5}>Movimento consolidado do dia</td>
-                <td className="px-2 py-1.5 border-b border-slate-900 text-right">{brl((move.contas_receber || 0) + (move.duplicatas || 0) - (move.contas_pagar || 0) - (move.net_ops || 0))}</td>
+                <td className="px-2 py-1.5 border-b border-slate-900">RESULTADO DO DIA</td>
+                <td className="px-2 py-1.5 border-b border-slate-900" colSpan={5}>Entradas - Saídas</td>
+                <td className="px-2 py-1.5 border-b border-slate-900 text-right">{brl(totalEntradas - totalSaidas)}</td>
               </tr>
             </tbody>
           </table>
@@ -186,72 +132,28 @@ export default async function Page({ params, searchParams }: { params: Promise<{
       </section>
 
       <section className="card mt-4">
-        <div className="row mb-3"><span>Demonstração no formato matriz (como planilha)</span><span className="text-xs text-slate-400">visão executiva</span></div>
+        <div className="row mb-3"><span>Projeção 90 dias (automática)</span><span className="text-xs text-slate-400">calculada a partir dos relatórios diários</span></div>
         <div className="overflow-auto rounded-lg border border-slate-800">
-          <table className="min-w-[1400px] text-xs">
+          <table className="min-w-full text-xs md:text-sm">
             <thead className="bg-slate-900/80">
               <tr>
-                <th className="text-left px-3 py-2 border-b border-slate-800">conta</th>
-                {selected.rows.slice(0, 20).map((d) => (
-                  <th key={d.date} className="text-right px-2 py-2 border-b border-slate-800 whitespace-nowrap">{d.date.slice(5)}</th>
-                ))}
+                <th className="text-left px-3 py-2 border-b border-slate-800">Data</th>
+                <th className="text-right px-3 py-2 border-b border-slate-800">Saldo inicial</th>
+                <th className="text-right px-3 py-2 border-b border-slate-800">Entradas</th>
+                <th className="text-right px-3 py-2 border-b border-slate-800">Saídas</th>
+                <th className="text-right px-3 py-2 border-b border-slate-800">Saldo final</th>
               </tr>
             </thead>
             <tbody>
-              <tr><td className="px-3 py-2 border-b border-slate-900 font-semibold">entradas</td>{selected.rows.slice(0,20).map((d)=><td key={d.date+"e"} className="border-b border-slate-900" />)}</tr>
-              {[
-                { n: "entrada 1", f: 0.4 },
-                { n: "entrada 2", f: 0.35 },
-                { n: "entrada 3", f: 0.25 },
-              ].map((r) => (
-                <tr key={r.n}>
-                  <td className="px-3 py-2 border-b border-slate-900">{r.n}</td>
-                  {selected.rows.slice(0, 20).map((d) => (
-                    <td key={d.date + r.n} className="px-2 py-2 border-b border-slate-900 text-right">{Math.round(d.inflow * r.f).toLocaleString("pt-BR")}</td>
-                  ))}
+              {selected.rows.map((r) => (
+                <tr key={r.date} className={`odd:bg-slate-900/30 ${r.rupture ? "bg-red-950/30" : ""}`}>
+                  <td className="px-3 py-2 border-b border-slate-900">{r.date}</td>
+                  <td className="px-3 py-2 border-b border-slate-900 text-right">{brl(r.opening)}</td>
+                  <td className="px-3 py-2 border-b border-slate-900 text-right">{brl(r.inflow)}</td>
+                  <td className="px-3 py-2 border-b border-slate-900 text-right">{brl(r.outflow)}</td>
+                  <td className="px-3 py-2 border-b border-slate-900 text-right">{brl(r.closing)}</td>
                 </tr>
               ))}
-              <tr className="bg-slate-900/40">
-                <td className="px-3 py-2 border-b border-slate-900 font-semibold">TOTAL de Entradas</td>
-                {selected.rows.slice(0, 20).map((d) => (
-                  <td key={d.date+"te"} className="px-2 py-2 border-b border-slate-900 text-right font-semibold">{Math.round(d.inflow).toLocaleString("pt-BR")}</td>
-                ))}
-              </tr>
-
-              <tr><td className="px-3 py-2 border-b border-slate-900 font-semibold">saídas</td>{selected.rows.slice(0,20).map((d)=><td key={d.date+"s"} className="border-b border-slate-900" />)}</tr>
-              {[
-                { n: "folha", f: 0.28 },
-                { n: "impostos", f: 0.18 },
-                { n: "fornecedores", f: 0.22 },
-                { n: "despesas fixas", f: 0.16 },
-                { n: "outras saídas", f: 0.16 },
-              ].map((r) => (
-                <tr key={r.n}>
-                  <td className="px-3 py-2 border-b border-slate-900">{r.n}</td>
-                  {selected.rows.slice(0, 20).map((d) => (
-                    <td key={d.date + r.n} className="px-2 py-2 border-b border-slate-900 text-right">{Math.round(d.outflow * r.f).toLocaleString("pt-BR")}</td>
-                  ))}
-                </tr>
-              ))}
-              <tr className="bg-slate-900/40">
-                <td className="px-3 py-2 border-b border-slate-900 font-semibold">TOTAL de Saídas</td>
-                {selected.rows.slice(0, 20).map((d) => (
-                  <td key={d.date+"ts"} className="px-2 py-2 border-b border-slate-900 text-right font-semibold">{Math.round(d.outflow).toLocaleString("pt-BR")}</td>
-                ))}
-              </tr>
-
-              <tr>
-                <td className="px-3 py-2 border-b border-slate-900 font-semibold">saldo do dia</td>
-                {selected.rows.slice(0, 20).map((d) => (
-                  <td key={d.date+"sd"} className="px-2 py-2 border-b border-slate-900 text-right">{Math.round(d.inflow - d.outflow).toLocaleString("pt-BR")}</td>
-                ))}
-              </tr>
-              <tr className="bg-slate-900/40">
-                <td className="px-3 py-2 border-b border-slate-900 font-semibold">saldo final</td>
-                {selected.rows.slice(0, 20).map((d) => (
-                  <td key={d.date+"sf"} className={`px-2 py-2 border-b border-slate-900 text-right font-semibold ${d.closing < 0 ? "text-red-300" : ""}`}>{Math.round(d.closing).toLocaleString("pt-BR")}</td>
-                ))}
-              </tr>
             </tbody>
           </table>
         </div>

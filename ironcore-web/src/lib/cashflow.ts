@@ -101,3 +101,41 @@ export async function getCashflowProjection90d(projectId: string, dateISO: strin
     },
   };
 }
+
+export type OperationalMovementRow = {
+  fluxo: string;
+  movimentacao: string;
+  classificacao: string;
+  subclassificacao: string;
+  natureza: string;
+  lancamento: string;
+  valor: number;
+};
+
+export async function getOperationalMovementRows(projectId: string, dateISO: string) {
+  const q = await dbQuery<{ source_type: string; payload: Record<string, unknown> }>(
+    "select source_type, payload from daily_entries where project_id=$1 and business_date=$2 order by created_at asc",
+    [projectId, dateISO]
+  );
+
+  const rows: OperationalMovementRow[] = [];
+
+  for (const entry of q.rows) {
+    const p = entry.payload || {};
+    const src = entry.source_type === "upload" ? "UPLOAD" : "MANUAL";
+
+    const faturamento = Number(p.faturamento || 0);
+    const receber = Number(p.contas_receber || 0);
+    const duplicatas = Number(p.duplicatas || 0);
+    const pagar = Number(p.contas_pagar || 0);
+    const extrato = Number(p.extrato_bancario || 0);
+
+    if (faturamento > 0) rows.push({ fluxo: "01. OPERACIONAL", movimentacao: "01. ENTRADA", classificacao: "RECEITA", subclassificacao: "FATURAMENTO", natureza: "RECEITA DE VENDAS", lancamento: src, valor: faturamento });
+    if (receber > 0) rows.push({ fluxo: "01. OPERACIONAL", movimentacao: "01. ENTRADA", classificacao: "RECEBIMENTOS", subclassificacao: "CONTAS A RECEBER", natureza: "RECEBÍVEIS", lancamento: src, valor: receber });
+    if (duplicatas > 0) rows.push({ fluxo: "03. FINANCIAMENTO", movimentacao: "01. ENTRADA", classificacao: "ANTECIPAÇÃO", subclassificacao: "DUPLICATAS", natureza: "DUPLICATAS", lancamento: src, valor: duplicatas });
+    if (pagar > 0) rows.push({ fluxo: "01. OPERACIONAL", movimentacao: "02. SAÍDA", classificacao: "DESPESAS", subclassificacao: "CONTAS A PAGAR", natureza: "PAGAMENTOS", lancamento: src, valor: pagar });
+    if (extrato !== 0) rows.push({ fluxo: "02. BANCÁRIO", movimentacao: extrato >= 0 ? "01. ENTRADA" : "02. SAÍDA", classificacao: "EXTRATO", subclassificacao: "MOVIMENTO BANCÁRIO", natureza: "EXTRATO", lancamento: src, valor: extrato });
+  }
+
+  return rows;
+}
