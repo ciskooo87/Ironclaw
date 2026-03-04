@@ -101,6 +101,78 @@ export default async function Page({ params, searchParams }: { params: Promise<{
           </table>
         </div>
       </section>
+
+      <section className="card mt-4">
+        <div className="row mb-3"><span>Demonstração no formato matriz (como planilha)</span><span className="text-xs text-slate-400">visão executiva</span></div>
+        <div className="overflow-auto rounded-lg border border-slate-800">
+          <table className="min-w-[1400px] text-xs">
+            <thead className="bg-slate-900/80">
+              <tr>
+                <th className="text-left px-3 py-2 border-b border-slate-800">conta</th>
+                {selected.rows.slice(0, 20).map((d) => (
+                  <th key={d.date} className="text-right px-2 py-2 border-b border-slate-800 whitespace-nowrap">{d.date.slice(5)}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              <tr><td className="px-3 py-2 border-b border-slate-900 font-semibold">entradas</td>{selected.rows.slice(0,20).map((d)=><td key={d.date+"e"} className="border-b border-slate-900" />)}</tr>
+              {[
+                { n: "entrada 1", f: 0.4 },
+                { n: "entrada 2", f: 0.35 },
+                { n: "entrada 3", f: 0.25 },
+              ].map((r) => (
+                <tr key={r.n}>
+                  <td className="px-3 py-2 border-b border-slate-900">{r.n}</td>
+                  {selected.rows.slice(0, 20).map((d) => (
+                    <td key={d.date + r.n} className="px-2 py-2 border-b border-slate-900 text-right">{Math.round(d.inflow * r.f).toLocaleString("pt-BR")}</td>
+                  ))}
+                </tr>
+              ))}
+              <tr className="bg-slate-900/40">
+                <td className="px-3 py-2 border-b border-slate-900 font-semibold">TOTAL de Entradas</td>
+                {selected.rows.slice(0, 20).map((d) => (
+                  <td key={d.date+"te"} className="px-2 py-2 border-b border-slate-900 text-right font-semibold">{Math.round(d.inflow).toLocaleString("pt-BR")}</td>
+                ))}
+              </tr>
+
+              <tr><td className="px-3 py-2 border-b border-slate-900 font-semibold">saídas</td>{selected.rows.slice(0,20).map((d)=><td key={d.date+"s"} className="border-b border-slate-900" />)}</tr>
+              {[
+                { n: "folha", f: 0.28 },
+                { n: "impostos", f: 0.18 },
+                { n: "fornecedores", f: 0.22 },
+                { n: "despesas fixas", f: 0.16 },
+                { n: "outras saídas", f: 0.16 },
+              ].map((r) => (
+                <tr key={r.n}>
+                  <td className="px-3 py-2 border-b border-slate-900">{r.n}</td>
+                  {selected.rows.slice(0, 20).map((d) => (
+                    <td key={d.date + r.n} className="px-2 py-2 border-b border-slate-900 text-right">{Math.round(d.outflow * r.f).toLocaleString("pt-BR")}</td>
+                  ))}
+                </tr>
+              ))}
+              <tr className="bg-slate-900/40">
+                <td className="px-3 py-2 border-b border-slate-900 font-semibold">TOTAL de Saídas</td>
+                {selected.rows.slice(0, 20).map((d) => (
+                  <td key={d.date+"ts"} className="px-2 py-2 border-b border-slate-900 text-right font-semibold">{Math.round(d.outflow).toLocaleString("pt-BR")}</td>
+                ))}
+              </tr>
+
+              <tr>
+                <td className="px-3 py-2 border-b border-slate-900 font-semibold">saldo do dia</td>
+                {selected.rows.slice(0, 20).map((d) => (
+                  <td key={d.date+"sd"} className="px-2 py-2 border-b border-slate-900 text-right">{Math.round(d.inflow - d.outflow).toLocaleString("pt-BR")}</td>
+                ))}
+              </tr>
+              <tr className="bg-slate-900/40">
+                <td className="px-3 py-2 border-b border-slate-900 font-semibold">saldo final</td>
+                {selected.rows.slice(0, 20).map((d) => (
+                  <td key={d.date+"sf"} className={`px-2 py-2 border-b border-slate-900 text-right font-semibold ${d.closing < 0 ? "text-red-300" : ""}`}>{Math.round(d.closing).toLocaleString("pt-BR")}</td>
+                ))}
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
     </AppShell>
   );
 }
