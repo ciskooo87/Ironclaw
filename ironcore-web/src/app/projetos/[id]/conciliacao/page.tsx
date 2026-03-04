@@ -32,14 +32,21 @@ export default async function Page({ params, searchParams }: { params: Promise<{
         <h2 className="title">Histórico</h2>
         <div className="mt-3 space-y-2 text-sm">
           {runs.length === 0 ? <div className="alert muted-bg">Sem execuções.</div> : null}
-          {runs.map((r) => (
-            <div key={r.id} className="row !items-start">
-              <div>
+          {runs.map((r) => {
+            const d = r.details as Record<string, unknown>;
+            return (
+              <div key={r.id} className="card !p-3">
                 <div className="font-medium">{r.business_date} · {r.status.toUpperCase()}</div>
-                <div className="text-xs text-slate-400">match: {r.matched_items} · pendências: {r.pending_items}</div>
+                <div className="mt-2 grid md:grid-cols-2 gap-2 text-xs text-slate-300">
+                  <div className="row"><span>Match</span><b>{r.matched_items}</b></div>
+                  <div className="row"><span>Pendências</span><b>{r.pending_items}</b></div>
+                  <div className="row"><span>Extrato</span><b>{Number(d.extrato || 0).toFixed(2)}</b></div>
+                  <div className="row"><span>Receber + Duplicatas</span><b>{(Number(d.receber || 0) + Number(d.duplicatas || 0)).toFixed(2)}</b></div>
+                  <div className="row md:col-span-2"><span>Diferença (sem tolerância)</span><b>{Number(d.diff || 0).toFixed(2)}</b></div>
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </section>
     </AppShell>

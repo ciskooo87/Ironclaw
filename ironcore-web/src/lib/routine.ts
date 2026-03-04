@@ -1,5 +1,7 @@
 import { dbQuery } from "@/lib/db";
 import { runReconciliation } from "@/lib/conciliacao";
+import { listProjectAlerts, evaluateAlerts } from "@/lib/alerts";
+import { buildDeliveryPayload } from "@/lib/delivery";
 
 export type RoutineRun = {
   id: string;
@@ -21,11 +23,31 @@ export async function listRoutineRuns(projectId: string, limit = 20) {
   }
 }
 
-export async function runDailyRoutine(projectId: string, businessDate: string) {
+export async function runDailyRoutine(projectId: string, businessDate: string, projectCode = "projeto") {
   const recon = await runReconciliation(projectId, businessDate);
+  const alerts = await listProjectAlerts(projectId);
+  const evalAlerts = evaluateAlerts(alerts, {
+    diff: Number((recon.details.diff as number | undefined) || 0),
+    pending: recon.pending,
+  });
 
   const riskLevel = recon.pending === 0 ? "baixo" : recon.pending <= 3 ? "medio" : "alto";
-  const status: RoutineRun["status"] = recon.status === "ok" ? "success" : recon.status === "warning" ? "warning" : "blocked";
+  const status: RoutineRun["status"] = evalAlerts.hasBlocking
+    ? "blocked"
+    : recon.status === "ok"
+      ? "success"
+      : recon.status === "warning"
+        ? "warning"
+        : "blocked";
+
+  const delivery = buildDeliveryPayload({
+    projectCode,
+    businessDate,
+    status,
+    reconciliationPending: recon.pending,
+    riskLevel,
+  });
+
   const summary = {
     movementProcessed: true,
     aiAnalysis: {
@@ -38,6 +60,8 @@ export async function runDailyRoutine(projectId: string, businessDate: string) {
       note: recon.pending > 0 ? "Há impacto potencial por pendências de conciliação" : "Fluxo estável",
     },
     reconciliation: recon,
+    alertsTriggered: evalAlerts.hits.map((h) => ({ name: h.name, severity: h.severity, block: h.block_flow })),
+    delivery,
   };
 
   const q = await dbQuery<{ id: string }>(

@@ -32,14 +32,26 @@ export default async function Page({ params, searchParams }: { params: Promise<{
         <h2 className="title">Histórico</h2>
         <div className="mt-3 space-y-2 text-sm">
           {runs.length === 0 ? <div className="alert muted-bg">Sem execuções.</div> : null}
-          {runs.map((r) => (
-            <div key={r.id} className="row !items-start">
-              <div>
+          {runs.map((r) => {
+            const s = r.summary as Record<string, unknown>;
+            const ai = (s.aiAnalysis as Record<string, unknown>) || {};
+            const cf = (s.cashflow90d as Record<string, unknown>) || {};
+            const rec = (s.reconciliation as Record<string, unknown>) || {};
+            const delivery = (s.delivery as Record<string, unknown>) || {};
+
+            return (
+              <div key={r.id} className="card !p-3">
                 <div className="font-medium">{r.business_date} · {r.status.toUpperCase()}</div>
-                <div className="text-xs text-slate-400">{JSON.stringify(r.summary)}</div>
+                <div className="mt-2 grid md:grid-cols-2 gap-2 text-xs text-slate-300">
+                  <div className="row"><span>Risco IA</span><b>{String(ai.riskLevel || "-")}</b></div>
+                  <div className="row"><span>Pendências conciliação</span><b>{String((rec.pending as number | undefined) ?? "-")}</b></div>
+                  <div className="row"><span>Recomendação</span><b>{String(ai.recommendation || "-")}</b></div>
+                  <div className="row"><span>Fluxo 90d</span><b>{String(cf.note || "-")}</b></div>
+                  <div className="row md:col-span-2"><span>Payload envio</span><b className="truncate pl-2">{String(delivery.summaryText || "-")}</b></div>
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </section>
     </AppShell>

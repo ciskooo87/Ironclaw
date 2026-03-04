@@ -19,7 +19,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ code: string }
   const businessDate = String(form.get("business_date") || "");
   if (!businessDate) return NextResponse.redirect(new URL(`/projetos/${code}/rotina-diaria/?error=date`, req.url));
 
-  const out = await runDailyRoutine(project.id, businessDate);
+  const out = await runDailyRoutine(project.id, businessDate, project.code);
   const dbUser = await getUserByEmail(user.email);
   await dbQuery(
     "insert into audit_log(project_id, actor_user_id, action, entity, entity_id, after_data) values($1,$2,$3,$4,$5,$6::jsonb)",
