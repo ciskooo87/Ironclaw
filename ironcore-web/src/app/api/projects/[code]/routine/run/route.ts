@@ -9,22 +9,23 @@ import { dispatchRoutineSummary } from "@/lib/notify";
 import { withRetry } from "@/lib/retry-policy";
 import { validateCsrf } from "@/lib/csrf";
 import { can } from "@/lib/rbac";
+import { publicUrl } from "@/lib/request-url";
 
 export async function POST(req: Request, ctx: { params: Promise<{ code: string }> }) {
   const { code } = await ctx.params;
   const user = await getSessionUser();
   const project = await getProjectByCode(code);
-  if (!user || !project) return NextResponse.redirect(new URL(`/projetos/${code}/rotina-diaria/?error=forbidden`, req.url));
+  if (!user || !project) return NextResponse.redirect(publicUrl(req, `/projetos/${code}/rotina-diaria/?error=forbidden`));
 
   const allowed = await canAccessProject(user, project.id);
-  if (!allowed || !can(user.role, "routine.run")) return NextResponse.redirect(new URL(`/projetos/${code}/rotina-diaria/?error=forbidden`, req.url));
+  if (!allowed || !can(user.role, "routine.run")) return NextResponse.redirect(publicUrl(req, `/projetos/${code}/rotina-diaria/?error=forbidden`));
 
   const form = await req.formData();
   const csrfOk = await validateCsrf(form);
-  if (!csrfOk) return NextResponse.redirect(new URL(`/projetos/${code}/rotina-diaria/?error=csrf`, req.url));
+  if (!csrfOk) return NextResponse.redirect(publicUrl(req, `/projetos/${code}/rotina-diaria/?error=csrf`));
 
   const businessDate = String(form.get("business_date") || "");
-  if (!businessDate) return NextResponse.redirect(new URL(`/projetos/${code}/rotina-diaria/?error=date`, req.url));
+  if (!businessDate) return NextResponse.redirect(publicUrl(req, `/projetos/${code}/rotina-diaria/?error=date`));
 
   const out = await runDailyRoutine(project.id, businessDate, project.code);
   const dbUser = await getUserByEmail(user.email);
@@ -43,5 +44,5 @@ export async function POST(req: Request, ctx: { params: Promise<{ code: string }
     [project.id, dbUser?.id || null, "routine.run", "routine_runs", out.id || null, JSON.stringify({ ...out, deliveries })]
   );
 
-  return NextResponse.redirect(new URL(`/projetos/${code}/rotina-diaria/?saved=1`, req.url));
+  return NextResponse.redirect(publicUrl(req, `/projetos/${code}/rotina-diaria/?saved=1`));
 }
