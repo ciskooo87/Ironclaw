@@ -6,6 +6,7 @@ import { getDeliveryRun } from "@/lib/delivery-runs";
 import { dispatchRoutineSummary } from "@/lib/notify";
 import { dbQuery } from "@/lib/db";
 import { getUserByEmail } from "@/lib/users";
+import { withRetry } from "@/lib/retry-policy";
 
 export async function POST(req: Request, ctx: { params: Promise<{ code: string; deliveryId: string }> }) {
   const { code, deliveryId } = await ctx.params;
@@ -20,7 +21,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ code: string; 
   if (!run || run.project_id !== project.id) return NextResponse.redirect(new URL(`/projetos/${code}/delivery/?error=notfound`, req.url));
 
   const summaryText = String((run.payload?.summaryText as string | undefined) || "Rotina diária");
-  const results = await dispatchRoutineSummary(summaryText);
+  const results = await withRetry(() => dispatchRoutineSummary(summaryText));
   const current = results.find((r) => r.channel === run.channel);
 
   if (current) {

@@ -6,6 +6,7 @@ import { runDailyRoutine } from "@/lib/routine";
 import { dbQuery } from "@/lib/db";
 import { getUserByEmail } from "@/lib/users";
 import { dispatchRoutineSummary } from "@/lib/notify";
+import { withRetry } from "@/lib/retry-policy";
 
 export async function POST(req: Request, ctx: { params: Promise<{ code: string }> }) {
   const { code } = await ctx.params;
@@ -23,7 +24,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ code: string }
   const out = await runDailyRoutine(project.id, businessDate, project.code);
   const dbUser = await getUserByEmail(user.email);
   const summaryText = String((out.summary.delivery as Record<string, unknown> | undefined)?.summaryText || "Rotina executada");
-  const deliveries = await dispatchRoutineSummary(summaryText);
+  const deliveries = await withRetry(() => dispatchRoutineSummary(summaryText));
 
   for (const d of deliveries) {
     await dbQuery(
