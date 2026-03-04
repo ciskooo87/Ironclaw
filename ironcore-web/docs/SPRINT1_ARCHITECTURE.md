@@ -86,12 +86,19 @@ create table audit_log (
 - `002_daily_update.sql`: `updated_at` em `daily_entries`
 - `003_ops.sql`: `reconciliation_runs` e `routine_runs`
 - `004_finance.sql`: `financial_operations` e `monthly_closures`
+- `005_delivery_audit.sql`: `delivery_runs` (envio Telegram/WhatsApp/Email)
 
 ```bash
 cd ironcore-web
 export DATABASE_URL='postgres://user:pass@host:5432/ironcore'
 npm run migrate
 ```
+
+## Envio automático (opcional por env)
+
+- Telegram: `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`
+- WhatsApp webhook: `WHATSAPP_WEBHOOK_URL`
+- Email SMTP: `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `SMTP_TO`, `SMTP_FROM`
 
 ## Variáveis sugeridas de Fluxo de Caixa
 
