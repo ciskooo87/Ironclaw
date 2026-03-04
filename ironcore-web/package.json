@@ -7,8 +7,9 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "migrate": "bash ./scripts/migrate.sh",
+    "migrate": "tsx ./scripts/migrate.ts",
     "seed:users": "tsx ./scripts/seed-users.ts",
+    "seed:e2e": "tsx ./scripts/seed-e2e.ts",
     "preflight": "bash ./scripts/preflight.sh"
   },
   "dependencies": {
