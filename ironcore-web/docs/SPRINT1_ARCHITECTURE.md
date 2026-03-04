@@ -85,6 +85,7 @@ create table audit_log (
 - `001_init.sql`: entidades base (users, projects, permissions, daily, audit)
 - `002_daily_update.sql`: `updated_at` em `daily_entries`
 - `003_ops.sql`: `reconciliation_runs` e `routine_runs`
+- `004_finance.sql`: `financial_operations` e `monthly_closures`
 
 ```bash
 cd ironcore-web
