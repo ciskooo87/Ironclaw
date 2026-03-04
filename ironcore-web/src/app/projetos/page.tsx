@@ -21,6 +21,7 @@ export default async function ProjetosPage({ searchParams }: { searchParams: Pro
             <input name="segment" required placeholder="segmento" className="bg-slate-950/40 border border-slate-700 rounded-lg px-3 py-2" />
             <input name="timezone" defaultValue="America/Sao_Paulo" placeholder="timezone" className="bg-slate-950/40 border border-slate-700 rounded-lg px-3 py-2" />
             <input name="partners" placeholder="sócios (separar por vírgula)" className="md:col-span-2 bg-slate-950/40 border border-slate-700 rounded-lg px-3 py-2" />
+            <textarea name="account_plan" required placeholder="plano de contas (obrigatório, 1 conta por linha)" className="md:col-span-3 min-h-28 bg-slate-950/40 border border-slate-700 rounded-lg px-3 py-2" />
             <button className="badge py-2 cursor-pointer" type="submit">Criar projeto</button>
           </form>
           {params.error ? <div className="alert bad-bg mt-3">Erro ao criar projeto ({params.error}). Verifique DB e campos obrigatórios.</div> : null}

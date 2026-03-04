@@ -26,6 +26,7 @@ export default async function Page({ params, searchParams }: { params: Promise<{
             <label className="space-y-1"><span className="text-slate-400">Segmento</span><input name="segment" defaultValue={project.segment} required className="w-full bg-slate-950/40 border border-slate-700 rounded-lg px-3 py-2" /></label>
             <label className="space-y-1"><span className="text-slate-400">Timezone</span><input name="timezone" defaultValue={project.timezone} className="w-full bg-slate-950/40 border border-slate-700 rounded-lg px-3 py-2" /></label>
             <label className="space-y-1 md:col-span-2"><span className="text-slate-400">Sócios (vírgula)</span><input name="partners" defaultValue={(project.partners || []).join(", ")} className="w-full bg-slate-950/40 border border-slate-700 rounded-lg px-3 py-2" /></label>
+            <label className="space-y-1 md:col-span-2"><span className="text-slate-400">Plano de contas (obrigatório, 1 por linha)</span><textarea name="account_plan" required defaultValue={(project.account_plan || []).join("\n")} className="w-full min-h-32 bg-slate-950/40 border border-slate-700 rounded-lg px-3 py-2" /></label>
             <button className="badge py-2 cursor-pointer md:col-span-2" type="submit">Salvar cadastro</button>
           </form>
         )}

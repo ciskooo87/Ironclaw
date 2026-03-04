@@ -21,14 +21,15 @@ export async function POST(req: Request, ctx: { params: Promise<{ code: string }
   const segment = String(form.get("segment") || "").trim();
   const timezone = String(form.get("timezone") || "America/Sao_Paulo").trim();
   const partners = String(form.get("partners") || "").split(",").map((s) => s.trim()).filter(Boolean);
+  const accountPlan = String(form.get("account_plan") || "").split("\n").map((s) => s.trim()).filter(Boolean);
 
-  if (!name || !cnpj || !legalName || !segment) {
+  if (!name || !cnpj || !legalName || !segment || accountPlan.length === 0) {
     return NextResponse.redirect(new URL(`/projetos/${code}/cadastro/?error=required`, req.url));
   }
 
   try {
     const before = await getProjectByCode(code);
-    await updateProjectByCode(code, { name, cnpj, legalName, segment, timezone, partners });
+    await updateProjectByCode(code, { name, cnpj, legalName, segment, timezone, partners, accountPlan });
     const after = await getProjectByCode(code);
     if (after) {
       await dbQuery(
