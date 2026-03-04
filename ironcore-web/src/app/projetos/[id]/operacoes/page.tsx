@@ -4,6 +4,7 @@ import { getProjectByCode } from "@/lib/projects";
 import { canAccessProject } from "@/lib/permissions";
 import { listOperations } from "@/lib/operations";
 import { todayInSaoPauloISO } from "@/lib/time";
+import { ensureCsrfCookie } from "@/lib/csrf";
 
 export default async function Page({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ saved?: string; error?: string }> }) {
   const user = await requireUser();
@@ -16,11 +17,13 @@ export default async function Page({ params, searchParams }: { params: Promise<{
   if (!allowed) return <AppShell user={user} title="Projeto · Operações"><div className="alert bad-bg">Sem permissão.</div></AppShell>;
 
   const ops = await listOperations(project.id, 50);
+  const csrf = await ensureCsrfCookie();
 
   return (
     <AppShell user={user} title="Projeto · Operações" subtitle="Desconto, comissária, fomento e intercompany com impacto em caixa">
       <section className="card mb-4">
         <form action={`/api/projects/${id}/operacoes/create`} method="post" className="grid md:grid-cols-3 gap-2 text-sm">
+          <input type="hidden" name="csrf_token" value={csrf} />
           <input name="business_date" type="date" defaultValue={todayInSaoPauloISO()} className="bg-slate-950/40 border border-slate-700 rounded-lg px-3 py-2" />
           <select name="op_type" className="bg-slate-950/40 border border-slate-700 rounded-lg px-3 py-2">
             <option value="desconto_duplicata">desconto_duplicata</option>

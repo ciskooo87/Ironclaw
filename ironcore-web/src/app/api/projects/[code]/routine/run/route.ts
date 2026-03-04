@@ -7,6 +7,8 @@ import { dbQuery } from "@/lib/db";
 import { getUserByEmail } from "@/lib/users";
 import { dispatchRoutineSummary } from "@/lib/notify";
 import { withRetry } from "@/lib/retry-policy";
+import { validateCsrf } from "@/lib/csrf";
+import { can } from "@/lib/rbac";
 
 export async function POST(req: Request, ctx: { params: Promise<{ code: string }> }) {
   const { code } = await ctx.params;
@@ -15,9 +17,12 @@ export async function POST(req: Request, ctx: { params: Promise<{ code: string }
   if (!user || !project) return NextResponse.redirect(new URL(`/projetos/${code}/rotina-diaria/?error=forbidden`, req.url));
 
   const allowed = await canAccessProject(user, project.id);
-  if (!allowed) return NextResponse.redirect(new URL(`/projetos/${code}/rotina-diaria/?error=forbidden`, req.url));
+  if (!allowed || !can(user.role, "routine.run")) return NextResponse.redirect(new URL(`/projetos/${code}/rotina-diaria/?error=forbidden`, req.url));
 
   const form = await req.formData();
+  const csrfOk = await validateCsrf(form);
+  if (!csrfOk) return NextResponse.redirect(new URL(`/projetos/${code}/rotina-diaria/?error=csrf`, req.url));
+
   const businessDate = String(form.get("business_date") || "");
   if (!businessDate) return NextResponse.redirect(new URL(`/projetos/${code}/rotina-diaria/?error=date`, req.url));
 

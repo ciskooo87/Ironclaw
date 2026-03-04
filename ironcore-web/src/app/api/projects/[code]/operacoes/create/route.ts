@@ -7,6 +7,8 @@ import { getUserByEmail } from "@/lib/users";
 import { dbQuery } from "@/lib/db";
 import { checkRateLimit } from "@/lib/rate-limit";
 import { num, str } from "@/lib/validation";
+import { validateCsrf } from "@/lib/csrf";
+import { can } from "@/lib/rbac";
 
 export async function POST(req: Request, ctx: { params: Promise<{ code: string }> }) {
   const { code } = await ctx.params;
@@ -14,13 +16,16 @@ export async function POST(req: Request, ctx: { params: Promise<{ code: string }
   const project = await getProjectByCode(code);
   if (!user || !project) return NextResponse.redirect(new URL(`/projetos/${code}/operacoes/?error=forbidden`, req.url));
   const allowed = await canAccessProject(user, project.id);
-  if (!allowed) return NextResponse.redirect(new URL(`/projetos/${code}/operacoes/?error=forbidden`, req.url));
+  if (!allowed || !can(user.role, "ops.create")) return NextResponse.redirect(new URL(`/projetos/${code}/operacoes/?error=forbidden`, req.url));
 
   const ip = req.headers.get("x-forwarded-for") || user.email;
   const rl = checkRateLimit(`ops:${ip}`, 30, 60_000);
   if (!rl.ok) return NextResponse.redirect(new URL(`/projetos/${code}/operacoes/?error=rate`, req.url));
 
   const form = await req.formData();
+  const csrfOk = await validateCsrf(form);
+  if (!csrfOk) return NextResponse.redirect(new URL(`/projetos/${code}/operacoes/?error=csrf`, req.url));
+
   const businessDate = str(form.get("business_date"), 10, 10);
   const opType = String(form.get("op_type") || "desconto_duplicata") as "desconto_duplicata" | "comissaria" | "fomento" | "intercompany";
   const grossAmount = num(form.get("gross_amount"), 0.01, 1_000_000_000);

@@ -2,10 +2,11 @@ import { NextResponse } from "next/server";
 import { createProject } from "@/lib/projects";
 import { dbQuery } from "@/lib/db";
 import { getSessionUser } from "@/lib/auth";
+import { can } from "@/lib/rbac";
 
 export async function POST(req: Request) {
   const user = await getSessionUser();
-  if (!user || (user.role !== "admin_master" && user.role !== "head")) {
+  if (!user || !can(user.role, "project.create")) {
     return NextResponse.redirect(new URL("/projetos/?error=forbidden", req.url));
   }
 

@@ -3,6 +3,7 @@ import { requireUser } from "@/lib/guards";
 import { getProjectByCode } from "@/lib/projects";
 import { canAccessProject } from "@/lib/permissions";
 import { listDeliveryRuns } from "@/lib/delivery-runs";
+import { ensureCsrfCookie } from "@/lib/csrf";
 
 export default async function DeliveryPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ saved?: string; error?: string; channel?: string; status?: string; from?: string; to?: string }> }) {
   const user = await requireUser();
@@ -20,6 +21,7 @@ export default async function DeliveryPage({ params, searchParams }: { params: P
     from: query.from || undefined,
     to: query.to || undefined,
   });
+  const csrf = await ensureCsrfCookie();
 
   const exportQs = new URLSearchParams();
   if (query.channel) exportQs.set("channel", query.channel);
@@ -66,6 +68,7 @@ export default async function DeliveryPage({ params, searchParams }: { params: P
                 <div className="text-xs text-slate-400">{r.provider_message || "-"}</div>
               </div>
               <form action={`/api/projects/${id}/delivery/${r.id}/retry`} method="post">
+                <input type="hidden" name="csrf_token" value={csrf} />
                 <button className="pill" type="submit">Retry</button>
               </form>
             </div>

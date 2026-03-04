@@ -3,6 +3,7 @@ import { getSessionUser } from "@/lib/auth";
 import { getProjectByCode } from "@/lib/projects";
 import { canAccessProject } from "@/lib/permissions";
 import { createProjectAlert } from "@/lib/alerts";
+import { can } from "@/lib/rbac";
 
 export async function POST(req: Request, ctx: { params: Promise<{ code: string }> }) {
   const { code } = await ctx.params;
@@ -10,7 +11,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ code: string }
   const project = await getProjectByCode(code);
   if (!user || !project) return NextResponse.redirect(new URL(`/projetos/${code}/riscos-alertas/?error=forbidden`, req.url));
   const allowed = await canAccessProject(user, project.id);
-  if (!allowed) return NextResponse.redirect(new URL(`/projetos/${code}/riscos-alertas/?error=forbidden`, req.url));
+  if (!allowed || !can(user.role, "alert.manage")) return NextResponse.redirect(new URL(`/projetos/${code}/riscos-alertas/?error=forbidden`, req.url));
 
   const form = await req.formData();
   const name = String(form.get("name") || "").trim();

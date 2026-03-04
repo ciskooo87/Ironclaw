@@ -6,6 +6,7 @@ import { getUserByEmail } from "@/lib/users";
 import { closeMonth } from "@/lib/closure";
 import { sumNetOperations } from "@/lib/operations";
 import { dbQuery } from "@/lib/db";
+import { can } from "@/lib/rbac";
 
 export async function POST(req: Request, ctx: { params: Promise<{ code: string }> }) {
   const { code } = await ctx.params;
@@ -13,7 +14,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ code: string }
   const project = await getProjectByCode(code);
   if (!user || !project) return NextResponse.redirect(new URL(`/projetos/${code}/fechamento-mensal/?error=forbidden`, req.url));
   const allowed = await canAccessProject(user, project.id);
-  if (!allowed) return NextResponse.redirect(new URL(`/projetos/${code}/fechamento-mensal/?error=forbidden`, req.url));
+  if (!allowed || !can(user.role, "closure.create")) return NextResponse.redirect(new URL(`/projetos/${code}/fechamento-mensal/?error=forbidden`, req.url));
 
   const form = await req.formData();
   const periodYm = String(form.get("period_ym") || "");

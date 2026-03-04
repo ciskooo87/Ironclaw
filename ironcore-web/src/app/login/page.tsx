@@ -1,10 +1,12 @@
 import { getSessionUser } from "@/lib/auth";
 import { redirect } from "next/navigation";
+import { ensureCsrfCookie } from "@/lib/csrf";
 
 export default async function LoginPage({ searchParams }: { searchParams: Promise<{ error?: string }> }) {
   const user = await getSessionUser();
   if (user) redirect("/dashboard");
   const params = await searchParams;
+  const csrf = await ensureCsrfCookie();
 
   return (
     <main className="min-h-screen p-6 md:p-8 flex items-center justify-center">
@@ -13,6 +15,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
         <p className="text-sm text-slate-400 mt-1">Acesso por email + senha</p>
 
         <form action="/api/auth/login" method="post" className="mt-4 space-y-3">
+          <input type="hidden" name="csrf_token" value={csrf} />
           <input name="email" type="email" placeholder="email" required className="w-full bg-slate-950/40 border border-slate-700 rounded-lg px-3 py-2 text-sm" />
           <input name="password" type="password" placeholder="senha" required className="w-full bg-slate-950/40 border border-slate-700 rounded-lg px-3 py-2 text-sm" />
           <button type="submit" className="w-full badge py-2 cursor-pointer">Entrar</button>

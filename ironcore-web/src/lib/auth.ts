@@ -1,4 +1,6 @@
 import { cookies } from "next/headers";
+import { dbQuery } from "@/lib/db";
+import { verifyPassword } from "@/lib/password";
 
 export const AUTH_COOKIE = "ironcore_session";
 
@@ -17,7 +19,20 @@ const FALLBACK_USERS: Array<SessionUser & { password: string }> = [
   { email: "consultor@ironcore.lat", password: "ironcore123", role: "consultor", name: "Consultor" },
 ];
 
-export function authenticate(email: string, password: string): SessionUser | null {
+export async function authenticate(email: string, password: string): Promise<SessionUser | null> {
+  try {
+    const q = await dbQuery<{ email: string; role: UserRole; name: string; password_hash: string }>(
+      "select email, role, name, password_hash from users where email=$1 and active=true limit 1",
+      [email.toLowerCase()]
+    );
+    const row = q.rows[0];
+    if (row && (await verifyPassword(password, row.password_hash))) {
+      return { email: row.email, role: row.role, name: row.name };
+    }
+  } catch {
+    // fallback below
+  }
+
   const user = FALLBACK_USERS.find((u) => u.email.toLowerCase() === email.toLowerCase() && u.password === password);
   if (!user) return null;
   return { email: user.email, role: user.role, name: user.name };

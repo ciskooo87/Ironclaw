@@ -1,10 +1,18 @@
 import { AppShell } from "@/components/AppShell";
 import { requireUser } from "@/lib/guards";
 import { integrationHealth } from "@/lib/integrations";
+import { ensureCsrfCookie } from "@/lib/csrf";
+import { can } from "@/lib/rbac";
 
-export default async function AdminPage() {
+export default async function AdminPage({ searchParams }: { searchParams: Promise<{ saved?: string; error?: string }> }) {
   const user = await requireUser();
+  const q = await searchParams;
   const h = integrationHealth();
+  const csrf = await ensureCsrfCookie();
+
+  if (!can(user.role, "admin.status")) {
+    return <AppShell user={user} title="Admin Master"><div className="alert bad-bg">Sem permissão administrativa.</div></AppShell>;
+  }
 
   return (
     <AppShell user={user} title="Admin Master" subtitle="Gestão e saúde das integrações">
@@ -16,6 +24,20 @@ export default async function AdminPage() {
           <div className={`alert ${h.email ? "ok-bg" : "bad-bg"}`}>Email SMTP: {h.email ? "OK" : "MISSING ENV"}</div>
         </div>
       </section>
+
+      {user.role === "admin_master" ? (
+        <section className="card mb-4">
+          <h2 className="title">Reset de senha</h2>
+          <form action="/api/admin/users/reset-password" method="post" className="mt-3 grid md:grid-cols-3 gap-2 text-sm">
+            <input type="hidden" name="csrf_token" value={csrf} />
+            <input name="email" type="email" placeholder="email do usuário" className="bg-slate-950/40 border border-slate-700 rounded-lg px-3 py-2" required />
+            <input name="new_password" type="text" placeholder="nova senha (min 8)" className="bg-slate-950/40 border border-slate-700 rounded-lg px-3 py-2" required />
+            <button className="badge py-2 cursor-pointer" type="submit">Resetar senha</button>
+          </form>
+          {q.saved ? <div className="alert ok-bg mt-3">Senha atualizada.</div> : null}
+          {q.error ? <div className="alert bad-bg mt-3">Erro: {q.error}</div> : null}
+        </section>
+      ) : null}
 
       <section className="card mb-4">
         <h2 className="title">Operação</h2>

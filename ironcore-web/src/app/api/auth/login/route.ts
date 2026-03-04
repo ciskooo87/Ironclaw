@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { authenticate, AUTH_COOKIE, encodeSession } from "@/lib/auth";
 import { checkRateLimit } from "@/lib/rate-limit";
+import { validateCsrf } from "@/lib/csrf";
 
 export async function POST(req: Request) {
   const ip = req.headers.get("x-forwarded-for") || "local";
@@ -10,10 +11,15 @@ export async function POST(req: Request) {
   }
 
   const form = await req.formData();
+  const csrfOk = await validateCsrf(form);
+  if (!csrfOk) {
+    return NextResponse.redirect(new URL("/login?error=csrf", req.url));
+  }
+
   const email = String(form.get("email") || "");
   const password = String(form.get("password") || "");
 
-  const user = authenticate(email, password);
+  const user = await authenticate(email, password);
   if (!user) {
     return NextResponse.redirect(new URL("/login?error=1", req.url));
   }

@@ -1,5 +1,6 @@
 import { dbQuery } from "@/lib/db";
 import type { UserRole } from "@/lib/auth";
+import { hashPassword } from "@/lib/password";
 
 export type DbUser = {
   id: string;
@@ -15,4 +16,9 @@ export async function getUserByEmail(email: string) {
   } catch {
     return null;
   }
+}
+
+export async function resetUserPassword(email: string, newPassword: string) {
+  const hash = await hashPassword(newPassword);
+  await dbQuery("update users set password_hash=$2 where email=$1", [email.toLowerCase(), hash]);
 }
