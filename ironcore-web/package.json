@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "eslint",
     "migrate": "bash ./scripts/migrate.sh",
-    "seed:users": "tsx ./scripts/seed-users.ts"
+    "seed:users": "tsx ./scripts/seed-users.ts",
+    "preflight": "bash ./scripts/preflight.sh"
   },
   "dependencies": {
     "@types/pg": "^8.18.0",
