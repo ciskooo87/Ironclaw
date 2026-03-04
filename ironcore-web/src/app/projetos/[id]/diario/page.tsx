@@ -33,7 +33,7 @@ export default async function Page({ params, searchParams }: { params: Promise<{
   return (
     <AppShell user={user} title="Projeto · Painel Diário" subtitle="Entrada manual/upload com limite de edição retroativa de 5 dias">
       <section className="card mb-4">
-        <h2 className="title">Lançar movimento diário</h2>
+        <h2 className="title">Lançar movimento diário (manual)</h2>
         <form action={`/api/projects/${id}/daily/create`} method="post" encType="multipart/form-data" className="mt-3 grid md:grid-cols-3 gap-2 text-sm">
           <input name="business_date" type="date" defaultValue={todayInSaoPauloISO()} required className="bg-slate-950/40 border border-slate-700 rounded-lg px-3 py-2" />
           <select name="source_type" className="bg-slate-950/40 border border-slate-700 rounded-lg px-3 py-2">
@@ -52,6 +52,29 @@ export default async function Page({ params, searchParams }: { params: Promise<{
 
         {query.saved ? <div className="alert ok-bg mt-3">Movimento salvo.</div> : null}
         {query.error ? <div className="alert bad-bg mt-3">Erro: {query.error}.</div> : null}
+      </section>
+
+      <section className="card mb-4">
+        <h2 className="title">Enviar bases diárias direto pela plataforma</h2>
+        <div className="grid md:grid-cols-2 gap-3 mt-3 text-sm">
+          <form action={`/api/projects/${id}/daily/upload`} method="post" encType="multipart/form-data" className="card !p-3">
+            <div className="font-medium mb-2">Upload Base Diária</div>
+            <input type="hidden" name="upload_kind" value="base_diaria" />
+            <input name="business_date" type="date" defaultValue={todayInSaoPauloISO()} required className="mb-2 bg-slate-950/40 border border-slate-700 rounded-lg px-3 py-2" />
+            <input name="file" type="file" accept=".csv,.xlsx,.xls" required className="mb-2 bg-slate-950/40 border border-slate-700 rounded-lg px-3 py-2" />
+            <input name="notes" placeholder="observações" className="mb-2 bg-slate-950/40 border border-slate-700 rounded-lg px-3 py-2" />
+            <button type="submit" className="badge py-2 cursor-pointer">Enviar base diária</button>
+          </form>
+
+          <form action={`/api/projects/${id}/daily/upload`} method="post" encType="multipart/form-data" className="card !p-3">
+            <div className="font-medium mb-2">Upload Extrato Bancário</div>
+            <input type="hidden" name="upload_kind" value="extrato" />
+            <input name="business_date" type="date" defaultValue={todayInSaoPauloISO()} required className="mb-2 bg-slate-950/40 border border-slate-700 rounded-lg px-3 py-2" />
+            <input name="file" type="file" accept=".csv,.xlsx,.xls" required className="mb-2 bg-slate-950/40 border border-slate-700 rounded-lg px-3 py-2" />
+            <input name="notes" placeholder="observações" className="mb-2 bg-slate-950/40 border border-slate-700 rounded-lg px-3 py-2" />
+            <button type="submit" className="badge py-2 cursor-pointer">Enviar extrato</button>
+          </form>
+        </div>
       </section>
 
       <section className="card">
