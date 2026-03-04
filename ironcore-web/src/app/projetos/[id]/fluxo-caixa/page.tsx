@@ -132,28 +132,55 @@ export default async function Page({ params, searchParams }: { params: Promise<{
       </section>
 
       <section className="card mt-4">
-        <div className="row mb-3"><span>Projeção 90 dias (automática)</span><span className="text-xs text-slate-400">calculada a partir dos relatórios diários</span></div>
+        <div className="row mb-3"><span>Fluxo de 90 dias · template matriz</span><span className="text-xs text-slate-400">dados automáticos dos relatórios diários</span></div>
         <div className="overflow-auto rounded-lg border border-slate-800">
-          <table className="min-w-full text-xs md:text-sm">
+          <table className="min-w-[1800px] text-xs">
             <thead className="bg-slate-900/80">
               <tr>
-                <th className="text-left px-3 py-2 border-b border-slate-800">Data</th>
-                <th className="text-right px-3 py-2 border-b border-slate-800">Saldo inicial</th>
-                <th className="text-right px-3 py-2 border-b border-slate-800">Entradas</th>
-                <th className="text-right px-3 py-2 border-b border-slate-800">Saídas</th>
-                <th className="text-right px-3 py-2 border-b border-slate-800">Saldo final</th>
+                <th className="text-left px-3 py-2 border-b border-slate-800">conta</th>
+                {selected.rows.map((d) => (
+                  <th key={d.date} className="text-right px-2 py-2 border-b border-slate-800 whitespace-nowrap">{d.date.slice(5)}</th>
+                ))}
               </tr>
             </thead>
             <tbody>
-              {selected.rows.map((r) => (
-                <tr key={r.date} className={`odd:bg-slate-900/30 ${r.rupture ? "bg-red-950/30" : ""}`}>
-                  <td className="px-3 py-2 border-b border-slate-900">{r.date}</td>
-                  <td className="px-3 py-2 border-b border-slate-900 text-right">{brl(r.opening)}</td>
-                  <td className="px-3 py-2 border-b border-slate-900 text-right">{brl(r.inflow)}</td>
-                  <td className="px-3 py-2 border-b border-slate-900 text-right">{brl(r.outflow)}</td>
-                  <td className="px-3 py-2 border-b border-slate-900 text-right">{brl(r.closing)}</td>
-                </tr>
-              ))}
+              <tr>
+                <td className="px-3 py-2 border-b border-slate-900 font-semibold">entradas</td>
+                {selected.rows.map((d) => <td key={d.date+"e"} className="border-b border-slate-900" />)}
+              </tr>
+              <tr>
+                <td className="px-3 py-2 border-b border-slate-900">total de entradas</td>
+                {selected.rows.map((d) => (
+                  <td key={d.date+"te"} className="px-2 py-2 border-b border-slate-900 text-right">{Math.round(d.inflow).toLocaleString("pt-BR")}</td>
+                ))}
+              </tr>
+
+              <tr>
+                <td className="px-3 py-2 border-b border-slate-900 font-semibold">saídas</td>
+                {selected.rows.map((d) => <td key={d.date+"s"} className="border-b border-slate-900" />)}
+              </tr>
+              <tr>
+                <td className="px-3 py-2 border-b border-slate-900">total de saídas</td>
+                {selected.rows.map((d) => (
+                  <td key={d.date+"ts"} className="px-2 py-2 border-b border-slate-900 text-right">{Math.round(d.outflow).toLocaleString("pt-BR")}</td>
+                ))}
+              </tr>
+
+              <tr>
+                <td className="px-3 py-2 border-b border-slate-900">saldo do dia</td>
+                {selected.rows.map((d) => (
+                  <td key={d.date+"sd"} className="px-2 py-2 border-b border-slate-900 text-right">{Math.round(d.inflow - d.outflow).toLocaleString("pt-BR")}</td>
+                ))}
+              </tr>
+
+              <tr className="bg-slate-900/40">
+                <td className="px-3 py-2 border-b border-slate-900 font-semibold">saldo final</td>
+                {selected.rows.map((d) => (
+                  <td key={d.date+"sf"} className={`px-2 py-2 border-b border-slate-900 text-right font-semibold ${d.closing < 0 ? "text-red-300" : ""}`}>
+                    {Math.round(d.closing).toLocaleString("pt-BR")}
+                  </td>
+                ))}
+              </tr>
             </tbody>
           </table>
         </div>
