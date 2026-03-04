@@ -5,6 +5,8 @@ import { canAccessProject } from "@/lib/permissions";
 import { createOperation } from "@/lib/operations";
 import { getUserByEmail } from "@/lib/users";
 import { dbQuery } from "@/lib/db";
+import { checkRateLimit } from "@/lib/rate-limit";
+import { num, str } from "@/lib/validation";
 
 export async function POST(req: Request, ctx: { params: Promise<{ code: string }> }) {
   const { code } = await ctx.params;
@@ -14,14 +16,18 @@ export async function POST(req: Request, ctx: { params: Promise<{ code: string }
   const allowed = await canAccessProject(user, project.id);
   if (!allowed) return NextResponse.redirect(new URL(`/projetos/${code}/operacoes/?error=forbidden`, req.url));
 
+  const ip = req.headers.get("x-forwarded-for") || user.email;
+  const rl = checkRateLimit(`ops:${ip}`, 30, 60_000);
+  if (!rl.ok) return NextResponse.redirect(new URL(`/projetos/${code}/operacoes/?error=rate`, req.url));
+
   const form = await req.formData();
-  const businessDate = String(form.get("business_date") || "");
+  const businessDate = str(form.get("business_date"), 10, 10);
   const opType = String(form.get("op_type") || "desconto_duplicata") as "desconto_duplicata" | "comissaria" | "fomento" | "intercompany";
-  const grossAmount = Number(form.get("gross_amount") || 0);
-  const feePercent = Number(form.get("fee_percent") || 0);
-  const fundLimit = Number(form.get("fund_limit") || 0);
-  const receivableAvailable = Number(form.get("receivable_available") || 0);
-  const notes = String(form.get("notes") || "");
+  const grossAmount = num(form.get("gross_amount"), 0.01, 1_000_000_000);
+  const feePercent = num(form.get("fee_percent"), 0, 100);
+  const fundLimit = num(form.get("fund_limit"), 0, 1_000_000_000);
+  const receivableAvailable = num(form.get("receivable_available"), 0, 1_000_000_000);
+  const notes = str(form.get("notes"), 0, 4000);
 
   if (!businessDate || grossAmount <= 0) return NextResponse.redirect(new URL(`/projetos/${code}/operacoes/?error=required`, req.url));
   if (fundLimit > 0 && grossAmount > fundLimit) return NextResponse.redirect(new URL(`/projetos/${code}/operacoes/?error=fund_limit`, req.url));

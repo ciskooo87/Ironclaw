@@ -94,6 +94,13 @@ export DATABASE_URL='postgres://user:pass@host:5432/ironcore'
 npm run migrate
 ```
 
+## Hardening produção
+
+- Rate-limit em endpoints sensíveis (login, operações, retry delivery)
+- Retry com backoff para envios
+- Validação de input numérico/texto/período em rotas financeiras
+- Painel de status operacional: DB + integrações + erros 24h
+
 ## Envio automático (opcional por env)
 
 - Telegram: `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`

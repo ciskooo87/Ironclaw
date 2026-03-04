@@ -1,7 +1,14 @@
 import { NextResponse } from "next/server";
 import { authenticate, AUTH_COOKIE, encodeSession } from "@/lib/auth";
+import { checkRateLimit } from "@/lib/rate-limit";
 
 export async function POST(req: Request) {
+  const ip = req.headers.get("x-forwarded-for") || "local";
+  const rl = checkRateLimit(`login:${ip}`, 12, 60_000);
+  if (!rl.ok) {
+    return NextResponse.redirect(new URL("/login?error=rate", req.url));
+  }
+
   const form = await req.formData();
   const email = String(form.get("email") || "");
   const password = String(form.get("password") || "");

@@ -17,6 +17,13 @@ export default async function AdminPage() {
         </div>
       </section>
 
+      <section className="card mb-4">
+        <h2 className="title">Operação</h2>
+        <div className="mt-3">
+          <a className="pill" href="/admin/status/">Abrir status operacional</a>
+        </div>
+      </section>
+
       <section className="card">
         <h2 className="title">Governança</h2>
         <div className="mt-3 space-y-2 text-sm text-slate-300">

@@ -7,6 +7,7 @@ import { dispatchRoutineSummary } from "@/lib/notify";
 import { dbQuery } from "@/lib/db";
 import { getUserByEmail } from "@/lib/users";
 import { withRetry } from "@/lib/retry-policy";
+import { checkRateLimit } from "@/lib/rate-limit";
 
 export async function POST(req: Request, ctx: { params: Promise<{ code: string; deliveryId: string }> }) {
   const { code, deliveryId } = await ctx.params;
@@ -19,6 +20,10 @@ export async function POST(req: Request, ctx: { params: Promise<{ code: string; 
 
   const run = await getDeliveryRun(deliveryId);
   if (!run || run.project_id !== project.id) return NextResponse.redirect(new URL(`/projetos/${code}/delivery/?error=notfound`, req.url));
+
+  const ip = req.headers.get("x-forwarded-for") || user.email;
+  const rl = checkRateLimit(`retry:${ip}`, 20, 60_000);
+  if (!rl.ok) return NextResponse.redirect(new URL(`/projetos/${code}/delivery/?error=rate`, req.url));
 
   const summaryText = String((run.payload?.summaryText as string | undefined) || "Rotina diária");
   const results = await withRetry(() => dispatchRoutineSummary(summaryText));

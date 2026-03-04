@@ -13,4 +13,5 @@ export const APP_ROUTES = [
   { href: "/projetos/padrao/fechamento-mensal", label: "Fechamento" },
   { href: "/auditoria-uso", label: "Auditoria" },
   { href: "/admin", label: "Admin" },
+  { href: "/admin/status", label: "Status Ops" },
 ] as const;
