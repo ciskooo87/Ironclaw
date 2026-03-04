@@ -75,28 +75,23 @@ export default async function Page({ params, searchParams }: { params: Promise<{
       </section>
 
       <section className="card">
-        <div className="row mb-3"><span>Projeção 90 dias · cenário {scenario}</span><span className="text-xs text-slate-400">Fluxo de caixa padrão</span></div>
+        <div className="row mb-3"><span>Movimento do dia (detalhado)</span><span className="text-xs text-slate-400">substituindo bloco de projeção</span></div>
         <div className="overflow-auto rounded-lg border border-slate-800">
           <table className="min-w-full text-xs md:text-sm">
             <thead className="bg-slate-900/80">
               <tr>
-                <th className="text-left px-3 py-2 border-b border-slate-800">Data</th>
-                <th className="text-right px-3 py-2 border-b border-slate-800">Saldo inicial</th>
-                <th className="text-right px-3 py-2 border-b border-slate-800">Entradas</th>
-                <th className="text-right px-3 py-2 border-b border-slate-800">Saídas</th>
-                <th className="text-right px-3 py-2 border-b border-slate-800">Saldo final</th>
+                <th className="text-left px-3 py-2 border-b border-slate-800">Conta</th>
+                <th className="text-right px-3 py-2 border-b border-slate-800">Valor</th>
               </tr>
             </thead>
             <tbody>
-              {selected.rows.map((r) => (
-                <tr key={r.date} className={`odd:bg-slate-900/30 ${r.rupture ? "bg-red-950/30" : ""}`}>
-                  <td className="px-3 py-2 border-b border-slate-900">{r.date}</td>
-                  <td className="px-3 py-2 border-b border-slate-900 text-right">{brl(r.opening)}</td>
-                  <td className="px-3 py-2 border-b border-slate-900 text-right">{brl(r.inflow)}</td>
-                  <td className="px-3 py-2 border-b border-slate-900 text-right">{brl(r.outflow)}</td>
-                  <td className="px-3 py-2 border-b border-slate-900 text-right">{brl(r.closing)}</td>
-                </tr>
-              ))}
+              <tr className="odd:bg-slate-900/30"><td className="px-3 py-2 border-b border-slate-900">Faturamento</td><td className="px-3 py-2 border-b border-slate-900 text-right">{brl(move.faturamento || 0)}</td></tr>
+              <tr className="odd:bg-slate-900/30"><td className="px-3 py-2 border-b border-slate-900">Contas a receber</td><td className="px-3 py-2 border-b border-slate-900 text-right">{brl(move.contas_receber || 0)}</td></tr>
+              <tr className="odd:bg-slate-900/30"><td className="px-3 py-2 border-b border-slate-900">Duplicatas</td><td className="px-3 py-2 border-b border-slate-900 text-right">{brl(move.duplicatas || 0)}</td></tr>
+              <tr className="odd:bg-slate-900/30"><td className="px-3 py-2 border-b border-slate-900">Contas a pagar</td><td className="px-3 py-2 border-b border-slate-900 text-right">{brl(move.contas_pagar || 0)}</td></tr>
+              <tr className="odd:bg-slate-900/30"><td className="px-3 py-2 border-b border-slate-900">Extrato bancário</td><td className="px-3 py-2 border-b border-slate-900 text-right">{brl(move.extrato_bancario || 0)}</td></tr>
+              <tr className="odd:bg-slate-900/30"><td className="px-3 py-2 border-b border-slate-900">Operações líquidas</td><td className="px-3 py-2 border-b border-slate-900 text-right">{brl(move.net_ops || 0)}</td></tr>
+              <tr className="bg-slate-900/40 font-semibold"><td className="px-3 py-2 border-b border-slate-900">Resultado do dia (Entradas - Saídas)</td><td className="px-3 py-2 border-b border-slate-900 text-right">{brl((move.contas_receber || 0) + (move.duplicatas || 0) - (move.contas_pagar || 0))}</td></tr>
             </tbody>
           </table>
         </div>
