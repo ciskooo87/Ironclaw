@@ -9,18 +9,24 @@ function brl(v: number) {
   return v.toLocaleString("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 2 });
 }
 
-export default async function Page({ params }: { params: Promise<{ id: string }> }) {
+type ScenarioKey = "base" | "otimista" | "pessimista";
+
+export default async function Page({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ scenario?: string }> }) {
   const user = await requireUser();
   const { id } = await params;
+  const query = await searchParams;
   const project = await getProjectByCode(id);
 
   if (!project) return <AppShell user={user} title="Projeto · Fluxo de Caixa"><div className="alert bad-bg">Projeto não encontrado.</div></AppShell>;
   const allowed = await canAccessProject(user, project.id);
   if (!allowed) return <AppShell user={user} title="Projeto · Fluxo de Caixa"><div className="alert bad-bg">Sem permissão.</div></AppShell>;
 
+  const scenario = (["base", "otimista", "pessimista"].includes(query.scenario || "") ? query.scenario : "base") as ScenarioKey;
+
   const today = todayInSaoPauloISO();
   const move = await getTodayMovement(project.id, today);
   const proj = await getCashflowProjection90d(project.id, today);
+  const selected = proj.scenarios[scenario];
 
   return (
     <AppShell user={user} title="Projeto · Fluxo de Caixa" subtitle="Movimento do dia + projeção padrão de 90 dias">
@@ -42,8 +48,34 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
         </div>
       </section>
 
+      <section className="card mb-4">
+        <div className="flex items-center justify-between gap-3 flex-wrap">
+          <h2 className="title">Cenários de projeção</h2>
+          <form method="get" className="flex gap-2">
+            <select name="scenario" defaultValue={scenario} className="bg-slate-950/40 border border-slate-700 rounded-lg px-3 py-2 text-sm">
+              <option value="base">Base</option>
+              <option value="otimista">Otimista</option>
+              <option value="pessimista">Pessimista</option>
+            </select>
+            <button className="badge py-2 cursor-pointer" type="submit">Aplicar</button>
+          </form>
+        </div>
+
+        <div className="mt-3 grid md:grid-cols-3 gap-2 text-sm">
+          <div className="row"><span>Abertura inicial</span><b>{brl(proj.baseOpening)}</b></div>
+          <div className="row"><span>Média entradas</span><b>{brl(proj.avgIn)}</b></div>
+          <div className="row"><span>Média saídas</span><b>{brl(proj.avgOut)}</b></div>
+        </div>
+
+        <div className={`alert mt-3 ${selected.ruptureDate ? "bad-bg" : "ok-bg"}`}>
+          {selected.ruptureDate
+            ? `⚠ Ruptura de caixa prevista no cenário ${scenario} em ${selected.ruptureDate}`
+            : `✅ Sem ruptura prevista em 90 dias no cenário ${scenario}`}
+        </div>
+      </section>
+
       <section className="card">
-        <div className="row mb-3"><span>Projeção padrão 90 dias</span><span className="text-xs text-slate-400">Média entradas: {brl(proj.avgIn)} · Média saídas: {brl(proj.avgOut)}</span></div>
+        <div className="row mb-3"><span>Projeção 90 dias · cenário {scenario}</span><span className="text-xs text-slate-400">Fluxo de caixa padrão</span></div>
         <div className="overflow-auto rounded-lg border border-slate-800">
           <table className="min-w-full text-xs md:text-sm">
             <thead className="bg-slate-900/80">
@@ -56,8 +88,8 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
               </tr>
             </thead>
             <tbody>
-              {proj.rows.map((r) => (
-                <tr key={r.date} className="odd:bg-slate-900/30">
+              {selected.rows.map((r) => (
+                <tr key={r.date} className={`odd:bg-slate-900/30 ${r.rupture ? "bg-red-950/30" : ""}`}>
                   <td className="px-3 py-2 border-b border-slate-900">{r.date}</td>
                   <td className="px-3 py-2 border-b border-slate-900 text-right">{brl(r.opening)}</td>
                   <td className="px-3 py-2 border-b border-slate-900 text-right">{brl(r.inflow)}</td>
