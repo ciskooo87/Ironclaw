@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "migrate": "bash ./scripts/migrate.sh"
+    "migrate": "bash ./scripts/migrate.sh",
+    "seed:users": "tsx ./scripts/seed-users.ts"
   },
   "dependencies": {
     "@types/pg": "^8.18.0",
@@ -29,6 +30,7 @@
     "eslint": "^9",
     "eslint-config-next": "16.1.6",
     "tailwindcss": "^4",
+    "tsx": "^4.21.0",
     "typescript": "^5"
   }
 }
