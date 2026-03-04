@@ -1,0 +1,15 @@
+export const APP_ROUTES = [
+  { href: "/dashboard", label: "Dashboard" },
+  { href: "/projetos", label: "Projetos" },
+  { href: "/projetos/padrao/cadastro", label: "Cadastro" },
+  { href: "/projetos/padrao/riscos-alertas", label: "Riscos & Alertas" },
+  { href: "/projetos/padrao/diario", label: "Painel Diário" },
+  { href: "/projetos/padrao/conciliacao", label: "Conciliação" },
+  { href: "/projetos/padrao/operacoes", label: "Operações" },
+  { href: "/projetos/padrao/fluxo-caixa", label: "Fluxo 90d" },
+  { href: "/projetos/padrao/dre-dfc", label: "DRE / DFC" },
+  { href: "/projetos/padrao/rotina-diaria", label: "Rotina" },
+  { href: "/projetos/padrao/fechamento-mensal", label: "Fechamento" },
+  { href: "/auditoria-uso", label: "Auditoria" },
+  { href: "/admin", label: "Admin" },
+] as const;
