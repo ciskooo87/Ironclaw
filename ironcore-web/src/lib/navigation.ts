@@ -9,6 +9,7 @@ export const APP_ROUTES = [
   { href: "/projetos/padrao/fluxo-caixa", label: "Fluxo 90d" },
   { href: "/projetos/padrao/dre-dfc", label: "DRE / DFC" },
   { href: "/projetos/padrao/rotina-diaria", label: "Rotina" },
+  { href: "/projetos/padrao/delivery", label: "Delivery" },
   { href: "/projetos/padrao/fechamento-mensal", label: "Fechamento" },
   { href: "/auditoria-uso", label: "Auditoria" },
   { href: "/admin", label: "Admin" },
