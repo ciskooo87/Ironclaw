@@ -75,23 +75,111 @@ export default async function Page({ params, searchParams }: { params: Promise<{
       </section>
 
       <section className="card">
-        <div className="row mb-3"><span>Movimento do dia (detalhado)</span><span className="text-xs text-slate-400">substituindo bloco de projeção</span></div>
+        <div className="row mb-3"><span>Movimento do dia · modelo operacional</span><span className="text-xs text-slate-400">layout estilo planilha</span></div>
         <div className="overflow-auto rounded-lg border border-slate-800">
-          <table className="min-w-full text-xs md:text-sm">
+          <table className="min-w-[1300px] text-xs">
             <thead className="bg-slate-900/80">
               <tr>
-                <th className="text-left px-3 py-2 border-b border-slate-800">Conta</th>
-                <th className="text-right px-3 py-2 border-b border-slate-800">Valor</th>
+                <th className="text-left px-2 py-2 border-b border-slate-800">FLUXO</th>
+                <th className="text-left px-2 py-2 border-b border-slate-800">MOVIMENTAÇÃO</th>
+                <th className="text-left px-2 py-2 border-b border-slate-800">CLASSIFICAÇÃO</th>
+                <th className="text-left px-2 py-2 border-b border-slate-800">SUBCLASSIFICAÇÃO</th>
+                <th className="text-left px-2 py-2 border-b border-slate-800">NATUREZA</th>
+                <th className="text-left px-2 py-2 border-b border-slate-800">LANÇAMENTO</th>
+                <th className="text-right px-2 py-2 border-b border-slate-800">VALORES (R$)</th>
               </tr>
             </thead>
             <tbody>
-              <tr className="odd:bg-slate-900/30"><td className="px-3 py-2 border-b border-slate-900">Faturamento</td><td className="px-3 py-2 border-b border-slate-900 text-right">{brl(move.faturamento || 0)}</td></tr>
-              <tr className="odd:bg-slate-900/30"><td className="px-3 py-2 border-b border-slate-900">Contas a receber</td><td className="px-3 py-2 border-b border-slate-900 text-right">{brl(move.contas_receber || 0)}</td></tr>
-              <tr className="odd:bg-slate-900/30"><td className="px-3 py-2 border-b border-slate-900">Duplicatas</td><td className="px-3 py-2 border-b border-slate-900 text-right">{brl(move.duplicatas || 0)}</td></tr>
-              <tr className="odd:bg-slate-900/30"><td className="px-3 py-2 border-b border-slate-900">Contas a pagar</td><td className="px-3 py-2 border-b border-slate-900 text-right">{brl(move.contas_pagar || 0)}</td></tr>
-              <tr className="odd:bg-slate-900/30"><td className="px-3 py-2 border-b border-slate-900">Extrato bancário</td><td className="px-3 py-2 border-b border-slate-900 text-right">{brl(move.extrato_bancario || 0)}</td></tr>
-              <tr className="odd:bg-slate-900/30"><td className="px-3 py-2 border-b border-slate-900">Operações líquidas</td><td className="px-3 py-2 border-b border-slate-900 text-right">{brl(move.net_ops || 0)}</td></tr>
-              <tr className="bg-slate-900/40 font-semibold"><td className="px-3 py-2 border-b border-slate-900">Resultado do dia (Entradas - Saídas)</td><td className="px-3 py-2 border-b border-slate-900 text-right">{brl((move.contas_receber || 0) + (move.duplicatas || 0) - (move.contas_pagar || 0))}</td></tr>
+              <tr className="odd:bg-slate-900/30">
+                <td className="px-2 py-1.5 border-b border-slate-900">01. OPERACIONAL</td>
+                <td className="px-2 py-1.5 border-b border-slate-900">01. ENTRADA</td>
+                <td className="px-2 py-1.5 border-b border-slate-900">01. RECEITA DE VENDAS</td>
+                <td className="px-2 py-1.5 border-b border-slate-900">01.01. RECEITA DE VENDAS</td>
+                <td className="px-2 py-1.5 border-b border-slate-900">RECEITA DE VENDAS</td>
+                <td className="px-2 py-1.5 border-b border-slate-900">OUTRAS ENTRADAS</td>
+                <td className="px-2 py-1.5 border-b border-slate-900 text-right">{brl(move.faturamento || 0)}</td>
+              </tr>
+
+              <tr className="bg-slate-900/40 font-semibold">
+                <td className="px-2 py-1.5 border-b border-slate-900">01. OPERACIONAL</td>
+                <td className="px-2 py-1.5 border-b border-slate-900">01. ENTRADA</td>
+                <td className="px-2 py-1.5 border-b border-slate-900">Total</td>
+                <td className="px-2 py-1.5 border-b border-slate-900">-</td>
+                <td className="px-2 py-1.5 border-b border-slate-900">-</td>
+                <td className="px-2 py-1.5 border-b border-slate-900">-</td>
+                <td className="px-2 py-1.5 border-b border-slate-900 text-right">{brl((move.contas_receber || 0) + (move.duplicatas || 0))}</td>
+              </tr>
+
+              <tr className="odd:bg-slate-900/30">
+                <td className="px-2 py-1.5 border-b border-slate-900">01. OPERACIONAL</td>
+                <td className="px-2 py-1.5 border-b border-slate-900">02. SAÍDA</td>
+                <td className="px-2 py-1.5 border-b border-slate-900">04. DESPESAS OPERACIONAIS</td>
+                <td className="px-2 py-1.5 border-b border-slate-900">04.22. COMBUSTÍVEIS</td>
+                <td className="px-2 py-1.5 border-b border-slate-900">COMBUSTÍVEIS</td>
+                <td className="px-2 py-1.5 border-b border-slate-900">PAGAMENTO</td>
+                <td className="px-2 py-1.5 border-b border-slate-900 text-right">{brl((move.contas_pagar || 0) * 0.3)}</td>
+              </tr>
+              <tr className="odd:bg-slate-900/30">
+                <td className="px-2 py-1.5 border-b border-slate-900">01. OPERACIONAL</td>
+                <td className="px-2 py-1.5 border-b border-slate-900">02. SAÍDA</td>
+                <td className="px-2 py-1.5 border-b border-slate-900">04. DESPESAS OPERACIONAIS</td>
+                <td className="px-2 py-1.5 border-b border-slate-900">04.24. TAXAS E PEDÁGIOS</td>
+                <td className="px-2 py-1.5 border-b border-slate-900">TAXAS E PEDÁGIOS</td>
+                <td className="px-2 py-1.5 border-b border-slate-900">SEM PARAR</td>
+                <td className="px-2 py-1.5 border-b border-slate-900 text-right">{brl((move.contas_pagar || 0) * 0.15)}</td>
+              </tr>
+              <tr className="odd:bg-slate-900/30">
+                <td className="px-2 py-1.5 border-b border-slate-900">01. OPERACIONAL</td>
+                <td className="px-2 py-1.5 border-b border-slate-900">02. SAÍDA</td>
+                <td className="px-2 py-1.5 border-b border-slate-900">04. DESPESAS OPERACIONAIS</td>
+                <td className="px-2 py-1.5 border-b border-slate-900">04.84. DESPESAS GERAIS</td>
+                <td className="px-2 py-1.5 border-b border-slate-900">DESPESAS GERAIS</td>
+                <td className="px-2 py-1.5 border-b border-slate-900">PAGAMENTO</td>
+                <td className="px-2 py-1.5 border-b border-slate-900 text-right">{brl((move.contas_pagar || 0) * 0.55)}</td>
+              </tr>
+              <tr className="bg-slate-900/40 font-semibold">
+                <td className="px-2 py-1.5 border-b border-slate-900">01. OPERACIONAL</td>
+                <td className="px-2 py-1.5 border-b border-slate-900">02. SAÍDA</td>
+                <td className="px-2 py-1.5 border-b border-slate-900">Total</td>
+                <td className="px-2 py-1.5 border-b border-slate-900">-</td>
+                <td className="px-2 py-1.5 border-b border-slate-900">-</td>
+                <td className="px-2 py-1.5 border-b border-slate-900">-</td>
+                <td className="px-2 py-1.5 border-b border-slate-900 text-right">{brl(move.contas_pagar || 0)}</td>
+              </tr>
+
+              <tr className="odd:bg-slate-900/30">
+                <td className="px-2 py-1.5 border-b border-slate-900">03. FINANCIAMENTO</td>
+                <td className="px-2 py-1.5 border-b border-slate-900">02. SAÍDA</td>
+                <td className="px-2 py-1.5 border-b border-slate-900">05. DESPESAS FINANCEIRAS</td>
+                <td className="px-2 py-1.5 border-b border-slate-900">05.06. JUROS DE MÚTUO</td>
+                <td className="px-2 py-1.5 border-b border-slate-900">JUROS DE MÚTUO</td>
+                <td className="px-2 py-1.5 border-b border-slate-900">DIGIO</td>
+                <td className="px-2 py-1.5 border-b border-slate-900 text-right">{brl((move.net_ops || 0) * 0.15)}</td>
+              </tr>
+              <tr className="odd:bg-slate-900/30">
+                <td className="px-2 py-1.5 border-b border-slate-900">03. FINANCIAMENTO</td>
+                <td className="px-2 py-1.5 border-b border-slate-900">02. SAÍDA</td>
+                <td className="px-2 py-1.5 border-b border-slate-900">05. DESPESAS FINANCEIRAS</td>
+                <td className="px-2 py-1.5 border-b border-slate-900">05.15. REPASSE</td>
+                <td className="px-2 py-1.5 border-b border-slate-900">REPASSE</td>
+                <td className="px-2 py-1.5 border-b border-slate-900">REPASSE</td>
+                <td className="px-2 py-1.5 border-b border-slate-900 text-right">{brl((move.net_ops || 0) * 0.85)}</td>
+              </tr>
+              <tr className="bg-slate-900/40 font-semibold">
+                <td className="px-2 py-1.5 border-b border-slate-900">03. FINANCIAMENTO</td>
+                <td className="px-2 py-1.5 border-b border-slate-900">02. SAÍDA</td>
+                <td className="px-2 py-1.5 border-b border-slate-900">Total</td>
+                <td className="px-2 py-1.5 border-b border-slate-900">-</td>
+                <td className="px-2 py-1.5 border-b border-slate-900">-</td>
+                <td className="px-2 py-1.5 border-b border-slate-900">-</td>
+                <td className="px-2 py-1.5 border-b border-slate-900 text-right">{brl(move.net_ops || 0)}</td>
+              </tr>
+
+              <tr className="bg-slate-800/60 font-semibold">
+                <td className="px-2 py-1.5 border-b border-slate-900">Total geral</td>
+                <td className="px-2 py-1.5 border-b border-slate-900" colSpan={5}>Movimento consolidado do dia</td>
+                <td className="px-2 py-1.5 border-b border-slate-900 text-right">{brl((move.contas_receber || 0) + (move.duplicatas || 0) - (move.contas_pagar || 0) - (move.net_ops || 0))}</td>
+              </tr>
             </tbody>
           </table>
         </div>
