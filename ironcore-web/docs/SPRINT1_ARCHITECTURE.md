@@ -80,6 +80,14 @@ create table audit_log (
 );
 ```
 
+## Migrations
+
+```bash
+cd ironcore-web
+export DATABASE_URL='postgres://user:pass@host:5432/ironcore'
+npm run migrate
+```
+
 ## Variáveis sugeridas de Fluxo de Caixa
 
 1. prazo_medio_recebimento_dias
