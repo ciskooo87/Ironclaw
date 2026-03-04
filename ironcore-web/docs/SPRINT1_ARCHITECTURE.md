@@ -82,6 +82,10 @@ create table audit_log (
 
 ## Migrations
 
+- `001_init.sql`: entidades base (users, projects, permissions, daily, audit)
+- `002_daily_update.sql`: `updated_at` em `daily_entries`
+- `003_ops.sql`: `reconciliation_runs` e `routine_runs`
+
 ```bash
 cd ironcore-web
 export DATABASE_URL='postgres://user:pass@host:5432/ironcore'
