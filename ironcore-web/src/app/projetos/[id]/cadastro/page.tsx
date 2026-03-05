@@ -14,6 +14,7 @@ export default async function Page({ params, searchParams }: { params: Promise<{
   return (
     <AppShell user={user} title="Projeto · Cadastro" subtitle="Dados-base e governança do projeto">
       <section className="card">
+        <div className="section-head"><h2 className="title">Dados mestres e parâmetros financeiros</h2><span className="kpi-chip">Setup crítico</span></div>
         {!project ? (
           <div className="alert bad-bg">Projeto não encontrado no banco. Crie em /projetos.</div>
         ) : !allowed ? (
@@ -38,7 +39,7 @@ export default async function Page({ params, searchParams }: { params: Promise<{
         )}
 
         {project && (project.supplier_classes || []).length > 0 ? (
-          <div className="mt-4 overflow-auto rounded-lg border border-slate-800">
+          <div className="mt-4 table-wrap">
             <table className="min-w-full text-xs">
               <thead className="bg-slate-900/70">
                 <tr>

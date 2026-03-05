@@ -31,7 +31,7 @@ export default async function Page({ params, searchParams }: { params: Promise<{
   return (
     <AppShell user={user} title="Projeto · Riscos e Alertas" subtitle="Relato operacional + checklist de risco com ação e bloqueio">
       <section className="card mb-4">
-        <h2 className="title">Novo alerta</h2>
+        <div className="section-head"><h2 className="title">Novo alerta</h2><span className="kpi-chip">Risk control</span></div>
         <form action={`/api/projects/${id}/alerts/create`} method="post" className="mt-3 grid md:grid-cols-3 gap-2 text-sm">
           <input name="name" required placeholder="nome do alerta" className="bg-slate-950/40 border border-slate-700 rounded-lg px-3 py-2" />
           <select name="severity" className="bg-slate-950/40 border border-slate-700 rounded-lg px-3 py-2">
@@ -65,7 +65,7 @@ export default async function Page({ params, searchParams }: { params: Promise<{
             </div>
           </div>
 
-          <button type="submit" className="badge py-2 cursor-pointer">Salvar alerta</button>
+          <button type="submit" className="badge py-2 cursor-pointer">Salvar alerta ✦</button>
         </form>
         {query.saved ? <div className="alert ok-bg mt-3">Alerta salvo.</div> : null}
         {query.error ? <div className="alert bad-bg mt-3">Erro: {query.error}</div> : null}

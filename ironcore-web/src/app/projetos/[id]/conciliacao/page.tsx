@@ -24,6 +24,7 @@ export default async function Page({ params, searchParams }: { params: Promise<{
   return (
     <AppShell user={user} title="Projeto · Conciliação" subtitle="Conciliação automática + tratamento manual de não conciliados em tabela">
       <section className="card mb-4">
+        <div className="section-head"><h2 className="title">Motor de conciliação</h2><span className="kpi-chip">Auto + Manual</span></div>
         <form action={`/api/projects/${id}/conciliacao/run`} method="post" className="flex gap-2 items-center flex-wrap">
           <input name="business_date" type="date" defaultValue={selectedDate} className="bg-slate-950/40 border border-slate-700 rounded-lg px-3 py-2 text-sm" />
           <button className="badge py-2 px-3 cursor-pointer" type="submit">Rodar conciliação</button>
@@ -34,7 +35,7 @@ export default async function Page({ params, searchParams }: { params: Promise<{
 
       <section className="card mb-4">
         <div className="row mb-3"><span>Pagamentos não conciliados ({selectedDate})</span><span className="badge">{pendingItems.filter((i) => i.status === "pending").length} pendentes</span></div>
-        <div className="overflow-auto rounded-lg border border-slate-800">
+        <div className="table-wrap">
           <table className="min-w-full text-xs">
             <thead className="bg-slate-900/80">
               <tr>

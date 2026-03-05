@@ -61,8 +61,8 @@ export default async function Page({ params, searchParams }: { params: Promise<{
       </section>
 
       <section className="card mb-4">
-        <div className="flex items-center justify-between gap-3 flex-wrap">
-          <h2 className="title">Cenários de projeção</h2>
+        <div className="section-head flex-wrap">
+          <h2 className="title">Cenários de projeção</h2><span className="kpi-chip">Premium planner</span>
           <form method="get" className="flex gap-2">
             <select name="scenario" defaultValue={scenario} className="bg-slate-950/40 border border-slate-700 rounded-lg px-3 py-2 text-sm">
               <option value="base">Base</option>
@@ -106,7 +106,7 @@ export default async function Page({ params, searchParams }: { params: Promise<{
 
       <section className="card">
         <div className="row mb-3"><span>Movimento do dia · modelo operacional</span><span className="text-xs text-slate-400">layout estilo planilha</span></div>
-        <div className="overflow-auto rounded-lg border border-slate-800">
+        <div className="table-wrap">
           <table className="min-w-[1300px] text-xs">
             <thead className="bg-slate-900/80">
               <tr>
@@ -160,7 +160,7 @@ export default async function Page({ params, searchParams }: { params: Promise<{
 
       <section className="card mt-4">
         <div className="row mb-3"><span>Fluxo de 90 dias · template matriz</span><span className="text-xs text-slate-400">dados automáticos dos relatórios diários</span></div>
-        <div className="overflow-auto rounded-lg border border-slate-800">
+        <div className="table-wrap">
           <table className="min-w-[1800px] text-xs">
             <thead className="bg-slate-900/80">
               <tr>
