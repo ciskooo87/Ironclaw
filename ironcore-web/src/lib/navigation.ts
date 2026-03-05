@@ -1,5 +1,6 @@
 export const APP_ROUTES = [
   { href: "/dashboard", label: "Dashboard" },
+  { href: "/processo", label: "Processo 13 Abas" },
   { href: "/projetos", label: "Projetos" },
   { href: "/projetos/elicon/cadastro", label: "Cadastro" },
   { href: "/projetos/elicon/riscos-alertas", label: "Riscos & Alertas" },
