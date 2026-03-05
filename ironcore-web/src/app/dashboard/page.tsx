@@ -10,11 +10,12 @@ export default async function DashboardPage() {
 
   return (
     <AppShell user={user} title="IronCore · Dashboard" subtitle="Resumo e KPIs por projeto + mensuração de uso da ferramenta">
-      <section className="grid md:grid-cols-4 gap-3 mb-4">
+      <section className="grid md:grid-cols-5 gap-3 mb-4">
         <div className="metric"><div className="text-xs text-slate-400">Projetos visíveis</div><div className="text-xl font-semibold mt-1">{projects.length}</div><div className="text-xs text-cyan-300 mt-1">Segmentados por permissão</div></div>
         <div className="metric"><div className="text-xs text-slate-400">Usuários ativos 30d</div><div className="text-xl font-semibold mt-1">{usage.activeUsers}</div><div className="text-xs text-cyan-300 mt-1">Uso real da plataforma</div></div>
         <div className="metric"><div className="text-xs text-slate-400">Rotinas com sucesso</div><div className="text-xl font-semibold mt-1">{usage.routineSuccess}/{usage.routineTotal}</div><div className="text-xs text-cyan-300 mt-1">Saúde operacional</div></div>
         <div className="metric"><div className="text-xs text-slate-400">Inconsistências 30d</div><div className="text-xl font-semibold mt-1">{usage.inconsistencies}</div><div className="text-xs text-cyan-300 mt-1">Conciliação e bloqueios</div></div>
+        <div className="metric"><div className="text-xs text-slate-400">Envios automáticos</div><div className="text-xl font-semibold mt-1">{usage.deliverySent}</div><div className="text-xs text-cyan-300 mt-1">Falhas: {usage.deliveryFailed} · Skip: {usage.deliverySkipped}</div></div>
       </section>
 
       <section className="card mb-4">

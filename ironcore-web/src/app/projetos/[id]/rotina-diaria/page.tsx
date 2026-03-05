@@ -25,6 +25,10 @@ export default async function Page({ params, searchParams }: { params: Promise<{
         <form action={`/api/projects/${id}/routine/run`} method="post" className="flex gap-2 items-center flex-wrap">
           <input type="hidden" name="csrf_token" value={csrf} />
           <input name="business_date" type="date" defaultValue={todayInSaoPauloISO()} className="bg-slate-950/40 border border-slate-700 rounded-lg px-3 py-2 text-sm" />
+          <label className="text-xs text-slate-300 flex items-center gap-2 px-2">
+            <input type="checkbox" name="auto_delivery" value="1" defaultChecked />
+            envio automático após validar rotina
+          </label>
           <button className="badge py-2 px-3 cursor-pointer" type="submit">Rodar rotina diária</button>
         </form>
         {query.saved ? <div className="alert ok-bg mt-3">Rotina executada.</div> : null}
