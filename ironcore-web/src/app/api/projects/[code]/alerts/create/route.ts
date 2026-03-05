@@ -19,6 +19,10 @@ export async function POST(req: Request, ctx: { params: Promise<{ code: string }
   const blockFlow = String(form.get("block_flow") || "false") === "true";
   const maxDiff = Number(form.get("max_diff") || 0);
   const maxPending = Number(form.get("max_pending") || 0);
+  const projectReport = String(form.get("project_report") || "").trim();
+  const opportunity = String(form.get("opportunity") || "").trim();
+  const autoChecks = form.getAll("auto_checks").map((v) => String(v));
+  const uploadRef = String(form.get("upload_ref") || "").trim();
 
   if (!name) return NextResponse.redirect(new URL(`/projetos/${code}/riscos-alertas/?error=required`, req.url));
 
@@ -27,7 +31,14 @@ export async function POST(req: Request, ctx: { params: Promise<{ code: string }
     name,
     severity,
     blockFlow,
-    rule: { max_diff: maxDiff, max_pending: maxPending },
+    rule: {
+      max_diff: maxDiff,
+      max_pending: maxPending,
+      project_report: projectReport,
+      opportunity,
+      auto_checks: autoChecks,
+      upload_ref: uploadRef,
+    },
   });
 
   return NextResponse.redirect(new URL(`/projetos/${code}/riscos-alertas/?saved=1`, req.url));

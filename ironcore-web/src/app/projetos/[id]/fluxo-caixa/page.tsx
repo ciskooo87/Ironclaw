@@ -31,6 +31,15 @@ export default async function Page({ params, searchParams }: { params: Promise<{
   const totalEntradas = opRows.filter((r) => r.movimentacao.includes("ENTRADA")).reduce((s, r) => s + r.valor, 0);
   const totalSaidas = opRows.filter((r) => r.movimentacao.includes("SAÍDA")).reduce((s, r) => s + r.valor, 0);
 
+  const firstNegative = selected.rows.find((r) => r.closing < 0);
+  const finance = project.financial_profile || {};
+  const txDesconto = Number(finance.tx_percent || 2.5) / 100;
+  const floatDias = Number(finance.float_days || 15);
+  const recebiveisCarteira = Math.max(totalEntradas * 3, 0);
+  const gap = Math.abs(firstNegative?.closing || 0);
+  const custoDesconto = gap * txDesconto + Number(finance.tac || 0) + Number(finance.cost_per_boleto || 0);
+  const impactoProrrogacao = gap * 0.012;
+
   return (
     <AppShell user={user} title="Projeto · Fluxo de Caixa" subtitle="Movimento do dia + projeção padrão de 90 dias">
       <section className="grid md:grid-cols-3 gap-3 mb-4">
@@ -75,6 +84,24 @@ export default async function Page({ params, searchParams }: { params: Promise<{
             ? `⚠ Ruptura de caixa prevista no cenário ${scenario} em ${selected.ruptureDate}`
             : `✅ Sem ruptura prevista em 90 dias no cenário ${scenario}`}
         </div>
+
+        {firstNegative ? (
+          <div className="mt-3 rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-sm">
+            <div className="font-semibold">Sugestão automática para fluxo negativo</div>
+            <div className="mt-1">Gap estimado: <b>{brl(gap)}</b> · Float médio: <b>{floatDias} dias</b> · TX desconto: <b>{(txDesconto * 100).toFixed(2)}%</b></div>
+            <div className="mt-2 grid md:grid-cols-2 gap-2">
+              <div className="rounded border border-slate-700 p-2">
+                <div className="font-medium">Opção 1 · Prorrogar títulos</div>
+                <div className="text-slate-300">Impacto financeiro estimado: {brl(impactoProrrogacao)}</div>
+              </div>
+              <div className="rounded border border-slate-700 p-2">
+                <div className="font-medium">Opção 2 · Desconto de duplicatas</div>
+                <div className="text-slate-300">Recebíveis em carteira estimados: {brl(recebiveisCarteira)}</div>
+                <div className="text-slate-300">Custo projetado da operação: {brl(custoDesconto)}</div>
+              </div>
+            </div>
+          </div>
+        ) : null}
       </section>
 
       <section className="card">
