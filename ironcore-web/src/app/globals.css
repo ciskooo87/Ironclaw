@@ -116,3 +116,13 @@ input:focus, select:focus, textarea:focus {
 .ok-bg { background: rgba(18, 73, 57, 0.35); }
 .bad-bg { background: rgba(84, 26, 26, 0.45); }
 .muted-bg { background: rgba(18, 27, 47, 0.75); }
+
+@media (max-width: 768px) {
+  .card { padding: 12px; border-radius: 12px; }
+  .metric { padding: 9px; }
+  .row { flex-wrap: wrap; gap: 6px; }
+  .section-head { flex-wrap: wrap; align-items: flex-start; }
+  .kpi-chip { font-size: 10px; padding: 2px 8px; }
+  .table-wrap { border-radius: 10px; }
+  table { font-size: 11px; }
+}
