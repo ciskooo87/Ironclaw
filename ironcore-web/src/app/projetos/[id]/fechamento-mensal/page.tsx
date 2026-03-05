@@ -27,6 +27,7 @@ export default async function Page({ params, searchParams }: { params: Promise<{
   return (
     <AppShell user={user} title="Projeto · Fechamento Mensal" subtitle="Apresentação executiva com evolução do mês e snapshots imutáveis">
       <section className="card mb-4">
+        <div className="section-head"><h2 className="title">Fechamento mensal</h2><span className="kpi-chip">Board ready</span></div>
         <form action={`/api/projects/${id}/fechamento/close`} method="post" className="flex gap-2 items-center flex-wrap">
           <input name="period_ym" placeholder="YYYY-MM" pattern="\d{4}-\d{2}" className="bg-slate-950/40 border border-slate-700 rounded-lg px-3 py-2 text-sm" />
           <button className="badge py-2 px-3 cursor-pointer" type="submit">Fechar mês</button>
@@ -43,8 +44,8 @@ export default async function Page({ params, searchParams }: { params: Promise<{
       </section>
 
       <section className="card mb-4">
-        <h2 className="title">Evolução observável (deck-ready)</h2>
-        <div className="overflow-auto mt-3 rounded-lg border border-slate-800">
+        <div className="section-head"><h2 className="title">Evolução observável (deck-ready)</h2><span className="kpi-chip">Narrativa mensal</span></div>
+        <div className="table-wrap mt-3">
           <table className="min-w-full text-xs">
             <thead className="bg-slate-900/80">
               <tr>
@@ -81,7 +82,7 @@ export default async function Page({ params, searchParams }: { params: Promise<{
       </section>
 
       <section className="card">
-        <h2 className="title">Histórico de snapshots (técnico)</h2>
+        <div className="section-head"><h2 className="title">Histórico de snapshots (técnico)</h2><span className="kpi-chip">Auditoria</span></div>
         <div className="mt-3 space-y-2 text-sm">
           {closures.map((c) => (
             <details key={`${c.id}-raw`} className="rounded-lg border border-slate-800 p-2">

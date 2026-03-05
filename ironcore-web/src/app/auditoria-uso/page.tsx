@@ -10,6 +10,7 @@ export default async function AuditoriaUsoPage() {
   return (
     <AppShell user={user} title="Auditoria de Uso" subtitle="KPIs reais (últimos 30 dias)">
       <section className="grid md:grid-cols-7 gap-3 mb-4">
+        <div className="md:col-span-7 section-head"><h2 className="title">Indicadores de adoção e operação</h2><span className="kpi-chip">Últimos 30 dias</span></div>
         <div className="metric"><div className="text-xs text-slate-400">Usuários ativos</div><div className="text-xl font-semibold mt-1">{k.activeUsers}</div></div>
         <div className="metric"><div className="text-xs text-slate-400">Projetos ativos</div><div className="text-xl font-semibold mt-1">{k.activeProjects}</div></div>
         <div className="metric"><div className="text-xs text-slate-400">Rotinas executadas</div><div className="text-xl font-semibold mt-1">{k.routineTotal}</div></div>
@@ -20,7 +21,7 @@ export default async function AuditoriaUsoPage() {
       </section>
 
       <section className="card">
-        <h2 className="title">Módulos mais usados</h2>
+        <div className="section-head"><h2 className="title">Módulos mais usados</h2><span className="kpi-chip">Heatmap funcional</span></div>
         <div className="mt-3 space-y-2 text-sm">
           {k.topModules.length === 0 ? <div className="alert muted-bg">Sem dados ainda.</div> : null}
           {k.topModules.map((m) => (

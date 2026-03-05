@@ -11,6 +11,7 @@ export default async function DashboardPage() {
   return (
     <AppShell user={user} title="IronCore · Dashboard" subtitle="Resumo e KPIs por projeto + mensuração de uso da ferramenta">
       <section className="grid md:grid-cols-5 gap-3 mb-4">
+        <div className="md:col-span-5 section-head"><h2 className="title">Radar executivo</h2><span className="kpi-chip">30 dias</span></div>
         <div className="metric"><div className="text-xs text-slate-400">Projetos visíveis</div><div className="text-xl font-semibold mt-1">{projects.length}</div><div className="text-xs text-cyan-300 mt-1">Segmentados por permissão</div></div>
         <div className="metric"><div className="text-xs text-slate-400">Usuários ativos 30d</div><div className="text-xl font-semibold mt-1">{usage.activeUsers}</div><div className="text-xs text-cyan-300 mt-1">Uso real da plataforma</div></div>
         <div className="metric"><div className="text-xs text-slate-400">Rotinas com sucesso</div><div className="text-xl font-semibold mt-1">{usage.routineSuccess}/{usage.routineTotal}</div><div className="text-xs text-cyan-300 mt-1">Saúde operacional</div></div>
@@ -19,7 +20,7 @@ export default async function DashboardPage() {
       </section>
 
       <section className="card mb-4">
-        <h2 className="title">Resumo por projeto</h2>
+        <div className="section-head"><h2 className="title">Resumo por projeto</h2><span className="kpi-chip">Carteira ativa</span></div>
         <div className="mt-3 grid md:grid-cols-2 gap-2">
           {projects.length === 0 ? <div className="alert muted-bg">Sem projetos disponíveis.</div> : null}
           {projects.map((p) => (
@@ -38,7 +39,7 @@ export default async function DashboardPage() {
       </section>
 
       <section className="card">
-        <h2 className="title">Módulos mais usados (30 dias)</h2>
+        <div className="section-head"><h2 className="title">Módulos mais usados (30 dias)</h2><span className="kpi-chip">Adoção</span></div>
         <div className="mt-3 space-y-2 text-sm text-slate-300">
           {usage.topModules.length === 0 ? <div className="alert muted-bg">Sem dados de uso ainda.</div> : null}
           {usage.topModules.map((m) => (
