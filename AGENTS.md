@@ -19,6 +19,7 @@ Before doing anything else:
    - `shared-context/FEEDBACK-LOG.md`
    - `shared-context/SIGNALS.md`
    - `intel/DAILY-INTEL.md`
+6. Keep intel concise: update `intel/DAILY-INTEL.md` daily using `intel/DAILY-INTEL-TEMPLATE.md`.
 
 Don't ask permission. Just do it.
 
