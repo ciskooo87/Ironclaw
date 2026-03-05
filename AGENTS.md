@@ -20,6 +20,7 @@ Before doing anything else:
    - `shared-context/SIGNALS.md`
    - `intel/DAILY-INTEL.md`
 6. Keep intel concise: update `intel/DAILY-INTEL.md` daily using `intel/DAILY-INTEL-TEMPLATE.md`.
+7. For scheduled check-ins, use `intel/CHECKIN-SLOTS-TEMPLATE.md` and keep messages objective.
 
 Don't ask permission. Just do it.
 
